@@ -29,7 +29,13 @@ def use_tags_to("discover"):
 #https://bandcamp.com/api/discover/3/get_web?g=jazz&g=ambient&s=top&p=0&gn=0&f=all&w=0
 #                                            ^
 #--------------------------------------------| dis only works for subgenre
-
+#&g=[tag] - genre
+#&p=[0-X] - pagenumber
+#&gn=[?????????????????????] - location
+#&t=[????] - subgenres
+#&s=[top, new, rec] - recommendation level top, new artist, artist-recommended
+#&f=[all, digital, vinyl, cd, cassette] - format
+#&w=[-1, (527-522)] - time [today, this week, 2-6weeks ago]
 
 #not sure for what those are used
 #&lo=true
