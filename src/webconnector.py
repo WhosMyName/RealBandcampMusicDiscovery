@@ -11,7 +11,7 @@ class Connector(threading.Thread):
         self.session = requests.Session()
         self.parser = HTMLParser()
 
-    def get_tags(self):"
+    def get_tags(self):
         resp = self.session.get("https://bandcamp.com/tags")
         return self.parser.parse_tags(resp.content.decode("utf-8"))
 
@@ -23,4 +23,10 @@ class Connector(threading.Thread):
 
     def run(self):
         while not self.stop.is_set():
-                time.sleep(1)
+            time.sleep(1)
+
+def main():
+    conn = Connector()
+    conn.get_tags()
+
+main()

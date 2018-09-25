@@ -1,6 +1,7 @@
 """dafsaxv"""
 
+#does this make sense?
+
 class Tag():
-    def __init__(self, name, subtags):
+    def __init__(self, name):
         self.name = name
-        self.subtags = subtags
