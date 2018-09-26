@@ -17,9 +17,20 @@ class Connector(threading.Thread):
 
     def get_albums(self, tag):
         #send request
-        #resp = self.session.get("?")
+        timeframes = ["-1", "0", "527", "526", "525", "524", "523", "522"]
+        recommlvl = ["top", "new", "rec"]
         albumlist = []
-        return self.parser.parse_albums(resp.content.decode("utf-8"))
+        pagenumbers = 1
+        for timeframe in timeframes:
+            for recomm in recommlvl:
+                resp1 = self.session.get("https://bandcamp.com/api/discover/3/get_web?g=%s&s=%s&p=%s&gn=0&f=all&w=%s" % (tag, recomm, pagenum, time))
+                maxpages = self.parser.parse_maxpages(resp1.json())
+                for pagenum in range(0,maxpages):
+                    resp2 = self.session.get("https://bandcamp.com/api/discover/3/get_web?g=%s&s=%s&p=%s&gn=0&f=all&w=%s" % (tag, recomm, pagenum, time))
+                    albums = self.parser.parse_albums(resp2.json())
+                    for album in albums:
+                        albumlist.append(album)
+        return albumlist
 
     def run(self):
         while not self.stop.is_set():

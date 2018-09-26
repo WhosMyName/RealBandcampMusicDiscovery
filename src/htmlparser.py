@@ -3,6 +3,7 @@
 import threading
 from tags import Tag
 from album import Album
+import math
 
 class HTMLParser(threading.Thread):
     def __init__(self):
@@ -28,6 +29,10 @@ class HTMLParser(threading.Thread):
         #parse
         #create new Album()
         pass
+
+    def parse_maxpages(self, data):
+        maxentries = data["total_count"]
+        maxpages = math.ceil(maxentries/48)
 
     def run(self):
         while not self.stop.is_set():
