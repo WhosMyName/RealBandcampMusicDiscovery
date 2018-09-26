@@ -10,3 +10,6 @@ class Album():
         self.band = band
         self.cover = cover
         self.cover_url = cover_url
+
+    def __repr__(self):
+        return "" #finish dis
