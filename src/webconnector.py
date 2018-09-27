@@ -1,13 +1,18 @@
 import requests
 import threading
-import time
+from time import sleep
 import logging
+import sys
 #from album import Album
 from htmlparser import HTMLParser
 
 LOG_FORMAT = '%(asctime)-15s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(levelname)s | %(message)s'
-logging.basicConfig(format=LOG_FORMAT, level=logging.DEBUG)
+logging.basicConfig(format=LOG_FORMAT, level=logging.DEBUG, filename="../logs/error.log")
+strmhdlr = logging.StreamHandler(sys.stdout)
+strmhdlr.setLevel(logging.INFO)
+strmhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
 LOGGER = logging.getLogger('rbmd.webconnector')
+LOGGER.addHandler(strmhdlr)
 
 class Connector(threading.Thread):
     def __init__(self):
@@ -15,20 +20,25 @@ class Connector(threading.Thread):
         self.stop = threading.Event()
         self.session = requests.Session()
         self.parser = HTMLParser()
+        self.parser.start()
         self.apiurl = "https://bandcamp.com/api/discover/3/get_web?g=%s&s=%s&p=%s&gn=0&f=all&w=%s" # genre, recommlvl, pagenum, timeframe
         LOGGER.debug("Initialized %s" % self)
+
+    def __del__(self):
+        self.parser.__del__()
+        self.stop.set()
 
     def get_tags(self):
         LOGGER.info("Obtaining Tags")
         resp = self.session.get("https://bandcamp.com/tags")
         #LOGGER.debug(resp.content.decode("utf-8"))
-        return self.parser.parse_tags(resp.content.decode("utf-8"))
+        return self.parser.parse_tags(resp.content.decode("utf-8").split("\n"))
 
     def get_albums(self, tag):
         #send request
         timeframes = ["-1", "0", "527", "526", "525", "524", "523", "522"]
         recommlvl = ["top", "new", "rec"]
-        albumlist = []
+        albumlist = [] # make this a set
         pagenumbers = 1
         for timeframe in timeframes:
             for recomm in recommlvl:
@@ -42,15 +52,25 @@ class Connector(threading.Thread):
                     albums = self.parser.parse_albums(resp2.json())
                     LOGGER.debug("%r" % albums)
                     for album in albums:
-                        albumlist.append(album)
+                        albumlist.append(self.update_album_genre(album))
         return albumlist
+
+    def update_album_genre(self, album):
+        LOGGER.info("Updating Tags for %s" % album.name)
+        resp = self.session.get(album.url)
+        album.genre = self.parser.parse_album_genres(resp.content.decode("utf-8").split("\n"))
+        return album
 
     def run(self):
         while not self.stop.is_set():
-            time.sleep(1)
+            sleep(1)
 
 def main():
     conn = Connector()
-    print(conn.parser.parse_maxpages(conn.session.get("https://bandcamp.com/api/discover/3/get_web?g=jazz&g=ambient&s=top&p=0&gn=0&f=all&w=0").json()))
+    conn.start()
+    resp = conn.session.get(conn.apiurl % ("rock", "top", "0", "0"))
+    albums = conn.parser.parse_albums(resp.json())
+    for album in albums:
+        print(conn.update_album_genre(album))
 
-main()
+main()  

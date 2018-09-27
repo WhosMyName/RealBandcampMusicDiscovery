@@ -1,14 +1,20 @@
 """rewfew"""
 
+import sys
 import threading
+from time import sleep
 import logging
 from tags import Tag
 from album import Album
-import math
+from math import ceil
 
 LOG_FORMAT = '%(asctime)-15s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(levelname)s | %(message)s'
-logging.basicConfig(format=LOG_FORMAT, level=logging.DEBUG)
-LOGGER = logging.getLogger('rbmd.webconnector')
+logging.basicConfig(format=LOG_FORMAT, level=logging.DEBUG, filename="../logs/error.log")
+strmhdlr = logging.StreamHandler(sys.stdout)
+strmhdlr.setLevel(logging.INFO)
+strmhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
+LOGGER = logging.getLogger('rbmd.htmlparser')
+LOGGER.addHandler(strmhdlr)
 
 class HTMLParser(threading.Thread):
     def __init__(self):
@@ -16,34 +22,43 @@ class HTMLParser(threading.Thread):
         self.stop = threading.Event()
         LOGGER.debug("Initialized %s" % self)
 
+    def __del__(self):
+        self.stop.set()
+
     def parse_tags(self, data):
         LOGGER.info("Parsing Tags")
-        with open("tags.html", "w") as tagfd:
-            tagfd.write(data)
-        #figure out how subtags work
-        #taglist = []
-        #for blub in data:
-        #parse
-        #create new Tag()
-        pass
+        taglist = []#make set
+        for line in data:
+            if "class=\"tag size" in line:
+                tag = line.split("/tag/")[1].split("\" ")[0]
+                LOGGER.info("Found Tag: %s" % tag)
+                taglist.append(tag)
+        return taglist
     
-    def parse_albums(self, data):
-        #with open("albums.html", "w") as albfd:
-        #    albfd.write(data)
+    def parse_albums(self, data): #make this a set
+        LOGGER.info("Parsing Albums")
         albumlist = []
-        data = data["items"]
-        for key, value in data.items():
-            albumlist.append(value)
-
-        #for blub in data:
-        #parse
-        #create new Album()
-        pass
+        for rawalbum in data["items"]:
+            alb = Album(rawalbum["primary_text"], "https://%s.bandcamp.com/album/%s" % (rawalbum["url_hints"]["subdomain"], rawalbum["url_hints"]["slug"]),rawalbum["secondary_text"], None)
+            LOGGER.debug(alb)
+            albumlist.append(alb)
+        return albumlist
 
     def parse_maxpages(self, data):
         maxentries = data["total_count"]
-        maxpages = math.ceil(maxentries/48)
+        maxpages = ceil(maxentries/48)
+        return int(maxpages)
+
+    def parse_album_genres(self, data): # this too
+        LOGGER.info("Parsing Tags")
+        genrelist = []
+        for line in data:
+            if "class=\"tag\" href=" in line:
+                genre = line.split("/tag/")[1].split("\" ")[0]
+                LOGGER.info("Found Genre: %s" % genre) # debug
+                genrelist.append(genre)
+        return genrelist
 
     def run(self):
         while not self.stop.is_set():
-            time.sleep(1)
+            sleep(1)
