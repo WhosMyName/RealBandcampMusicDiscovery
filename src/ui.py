@@ -6,7 +6,7 @@ import sys
 import time
 from album import Album
 
-#maybe it makes sense to let this a subclass of some sort
+#maybe it makes sense to let this be a subclass of threading of some sort
 class MainWindow(QMainWindow):
 
     def __init__(self):
@@ -19,7 +19,12 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("RealBandcampMusicDisc0very")
         self.setGeometry(QRect(0, 0, 1280, 720))
         self.albumlist = set()
+        self.genrelist = ["1", "2", "3"]#set()
         self.btnlist = []
+
+        self.statusBar()
+        self.initMenu()
+        self.initToolbar()
         self.show()
 
     #da gud shit
@@ -29,6 +34,67 @@ class MainWindow(QMainWindow):
     #add content to those lists
     #eval
     #def add_
+
+    def initToolbar(self):
+        self.toolbar = self.addToolBar("Generic Foobar")
+
+        self.compare = self.toolbar.addAction("compare noods")
+        self.compare.triggered.connect(self.compare)
+        self.compare.setStatusTip("Compare!")
+
+        self.reload = self.toolbar.addAction("fresh noods")
+        self.reload.triggered.connect(self.refresh)
+        self.reload.setStatusTip("Apply")
+
+        self.more = self.toolbar.addAction("more noods")
+        self.more.triggered.connect(self.add_genre_selector)
+        self.more.setStatusTip("Add an additional Selector")
+
+        self.add_genre_selector()
+
+    def refresh(self):
+        pass
+        #add check for:
+        #empty selectors
+        #first valid run
+
+    def compare(self):
+        pass
+        #trigger comparison mechanism -> core class
+        #display: WIP
+        #display results
+        #display window/resizable toolbar/ with Album.url
+
+
+    def initMenu(self):
+        self.menuBar = self.menuBar()
+        self.helpMenu = self.menuBar.addMenu(" &Help")
+
+        ###############MENU ACTIONS#################################
+        self.helpAction = QAction(" &Help", self)
+        self.helpAction.setShortcut("F1")
+        self.helpAction.setStatusTip("Show the help")
+        self.helpAction.triggered.connect(self.showHelp)
+
+        self.quitAction = QAction(" &Quit", self)
+        self.quitAction.setShortcut("Crtl+Q")
+        self.quitAction.setStatusTip("Quit this Application")
+        self.quitAction.triggered.connect(self.quitApplication)
+
+        self.helpMenu.addAction(self.helpAction)
+        self.helpMenu.addAction(self.quitAction)
+
+    def quitApplication(self):
+        print("####################################Quit!############################################")
+
+    def showHelp(self):
+        print("####################################Help!############################################")
+
+    def add_genre_selector(self):
+        dd = QComboBox(parent=self)
+        for genre in self.genrelist:
+            dd.addItem(genre)
+        self.toolbar.addWidget(dd)
 
     def add_album(self, album):
         if isinstance(album, Album):

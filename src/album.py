@@ -12,10 +12,11 @@ strmhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
 LOGGER = logging.getLogger('rbmd.htmlparser')
 LOGGER.addHandler(strmhdlr)
 
+
 class Album():
     def __init__(self, name, url, band, cover_url):
         self.name = name
-        self.genre = None
+        self.genre = set()
         self.url = url
         self.band = band
         self.cover_url = cover_url
@@ -24,7 +25,7 @@ class Album():
         return "%s - %s" % (self.__class__, str(self.__dict__))
 
 def __main__():
-    alb = Album("GenericALbum.exe", ["nogenre", "gitgud"], "https://github.com/whosmyname", "datboigud", "https://i.pinimg.com/originals/5e/40/5b/5e405be0320863d04c84b399dc2969ca.jpg")
+    alb = Album("GenericALbum.exe", {"nogenre", "gitgud"}, "https://github.com/whosmyname", "datboigud", "https://i.pinimg.com/originals/5e/40/5b/5e405be0320863d04c84b399dc2969ca.jpg")
     LOGGER.info(alb)
 
 if __name__ == "__main__":

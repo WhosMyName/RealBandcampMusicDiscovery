@@ -7,12 +7,15 @@ import sys
 from htmlparser import HTMLParser
 
 LOG_FORMAT = '%(asctime)-15s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(levelname)s | %(message)s'
-logging.basicConfig(format=LOG_FORMAT, level=logging.DEBUG, filename="../logs/error.log")
+LOGGER = logging.getLogger('rbmd.webconnector')
 strmhdlr = logging.StreamHandler(sys.stdout)
 strmhdlr.setLevel(logging.INFO)
 strmhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
-LOGGER = logging.getLogger('rbmd.webconnector')
+flhdlr = logging.FileHandler("../logs/error.log", mode='a', encoding="utf-8", delay=False)
+flhdlr.setLevel(logging.DEBUG)
+flhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
 LOGGER.addHandler(strmhdlr)
+LOGGER.addHandler(flhdlr)
 
 class Connector(threading.Thread):
     def __init__(self):
@@ -35,24 +38,22 @@ class Connector(threading.Thread):
         return self.parser.parse_tags(resp.content.decode("utf-8").split("\n"))
 
     def get_albums(self, tag):
-        #send request
         timeframes = ["-1", "0", "527", "526", "525", "524", "523", "522"]
         recommlvl = ["top", "new", "rec"]
-        albumlist = [] # make this a set
-        pagenumbers = 1
+        albumlist = set()
         for timeframe in timeframes:
             for recomm in recommlvl:
-                LOGGER.debug("Getting MaxPages for %s" % self.apiurl % (tag, recomm, pagenum, time))
-                resp1 = self.session.get(self.apiurl % (tag, recomm, pagenum, time))
+                LOGGER.debug("Getting MaxPages for %s" % self.apiurl % (tag, recomm, "0", "0"))
+                resp1 = self.session.get(self.apiurl % (tag, recomm, "0", "0"))
                 maxpages = self.parser.parse_maxpages(resp1.json())
-                LOGGER.debug("MaxPages for %s is %s" % (self.apiurl, maxpages) % (tag, recomm, pagenum, time))
+                LOGGER.debug("MaxPages for %s is %s" % (self.apiurl, maxpages) % (tag, recomm, "0", "0"))
                 for pagenum in range(0,maxpages):
-                    LOGGER.debug("Getting data from %s" % self.apiurl % (tag, recomm, pagenum, time))
-                    resp2 = self.session.get(self.apiurl % (tag, recomm, pagenum, time))
+                    LOGGER.debug("Getting data from %s" % self.apiurl % (tag, recomm, pagenum, timeframe))
+                    resp2 = self.session.get(self.apiurl % (tag, recomm, pagenum, timeframe))
                     albums = self.parser.parse_albums(resp2.json())
                     LOGGER.debug("%r" % albums)
                     for album in albums:
-                        albumlist.append(self.update_album_genre(album))
+                        albumlist.add(self.update_album_genre(album))
         return albumlist
 
     def update_album_genre(self, album):
@@ -61,6 +62,13 @@ class Connector(threading.Thread):
         album.genre = self.parser.parse_album_genres(resp.content.decode("utf-8").split("\n"))
         return album
 
+    def get_album_cover(self, album):
+        #get
+        #parse
+        #dl
+        #return
+        pass
+
     def run(self):
         while not self.stop.is_set():
             sleep(1)
@@ -68,9 +76,6 @@ class Connector(threading.Thread):
 def main():
     conn = Connector()
     conn.start()
-    resp = conn.session.get(conn.apiurl % ("rock", "top", "0", "0"))
-    albums = conn.parser.parse_albums(resp.json())
-    for album in albums:
-        print(conn.update_album_genre(album))
+    print(conn.get_albums("rock"))
 
 main()  
