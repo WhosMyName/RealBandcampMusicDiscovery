@@ -8,6 +8,7 @@ from htmlparser import HTMLParser
 
 LOG_FORMAT = '%(asctime)-15s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(levelname)s | %(message)s'
 LOGGER = logging.getLogger('rbmd.webconnector')
+LOGGER.setLevel(logging.DEBUG)
 strmhdlr = logging.StreamHandler(sys.stdout)
 strmhdlr.setLevel(logging.INFO)
 strmhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
@@ -32,6 +33,7 @@ class Connector(threading.Thread):
         self.stop.set()
 
     def get_tags(self):
+        print("tags")
         LOGGER.info("Obtaining Tags")
         resp = self.session.get("https://bandcamp.com/tags")
         #LOGGER.debug(resp.content.decode("utf-8"))
@@ -43,10 +45,10 @@ class Connector(threading.Thread):
         albumlist = set()
         for timeframe in timeframes:
             for recomm in recommlvl:
-                LOGGER.debug("Getting MaxPages for %s" % self.apiurl % (tag, recomm, "0", "0"))
-                resp1 = self.session.get(self.apiurl % (tag, recomm, "0", "0"))
+                LOGGER.info("Getting MaxPages for %s" % self.apiurl % (tag, recomm, "0", timeframe))
+                resp1 = self.session.get(self.apiurl % (tag, recomm, "0", timeframe))
                 maxpages = self.parser.parse_maxpages(resp1.json())
-                LOGGER.debug("MaxPages for %s is %s" % (self.apiurl, maxpages) % (tag, recomm, "0", "0"))
+                LOGGER.debug("MaxPages for %s is %s" % (self.apiurl, maxpages) % (tag, recomm, "0", timeframe))
                 for pagenum in range(0,maxpages):
                     LOGGER.debug("Getting data from %s" % self.apiurl % (tag, recomm, pagenum, timeframe))
                     resp2 = self.session.get(self.apiurl % (tag, recomm, pagenum, timeframe))
@@ -73,9 +75,12 @@ class Connector(threading.Thread):
         while not self.stop.is_set():
             sleep(1)
 
-def main():
+def __main__():
     conn = Connector()
     conn.start()
-    print(conn.get_albums("rock"))
+    #conn.get_tags()
+    conn.get_albums("rock")
+    conn.__del__()
 
-main()  
+if __name__ == "__main__":
+    __main__()  

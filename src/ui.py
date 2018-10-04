@@ -1,16 +1,32 @@
-from PyQt5 import QtCore, QtGui
+from PyQt5 import QtCore, QtGui, Qt
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 import sys
 import time
+import logging
 from album import Album
+from core import Core
+
+LOG_FORMAT = '%(asctime)-15s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(levelname)s | %(message)s'
+LOGGER = logging.getLogger('rbmd.ui')
+LOGGER.setLevel(logging.DEBUG)
+strmhdlr = logging.StreamHandler(sys.stdout)
+strmhdlr.setLevel(logging.INFO)
+strmhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
+flhdlr = logging.FileHandler("../logs/error.log", mode='a', encoding="utf-8", delay=False)
+flhdlr.setLevel(logging.DEBUG)
+flhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
+LOGGER.addHandler(strmhdlr)
+LOGGER.addHandler(flhdlr)
 
 #maybe it makes sense to let this be a subclass of threading of some sort
 class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
+        self.core = Core()
+        self.core.start()
         self.layout = QGridLayout()
         self.widget = QWidget()
         self.widget.setMinimumSize(800, 600)
@@ -19,8 +35,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("RealBandcampMusicDisc0very")
         self.setGeometry(QRect(0, 0, 1280, 720))
         self.albumlist = set()
-        self.genrelist = ["1", "2", "3"]#set()
+        self.genrelist = self.core.get_genres()
         self.btnlist = []
+        self.selectorlist = []
 
         self.statusBar()
         self.initMenu()
@@ -39,7 +56,7 @@ class MainWindow(QMainWindow):
         self.toolbar = self.addToolBar("Generic Foobar")
 
         self.compare = self.toolbar.addAction("compare noods")
-        self.compare.triggered.connect(self.compare)
+        self.compare.triggered.connect(self.comparison)
         self.compare.setStatusTip("Compare!")
 
         self.reload = self.toolbar.addAction("fresh noods")
@@ -53,12 +70,18 @@ class MainWindow(QMainWindow):
         self.add_genre_selector()
 
     def refresh(self):
-        pass
+        comp = []
+        for selector in self.selectorlist:
+            comp.append(selector.currentData(0))
+        LOGGER.info(comp)
+        self.albumlist(self.core.refresh(comp))
+        
+
         #add check for:
         #empty selectors
-        #first valid run
+        #first val        passid run
 
-    def compare(self):
+    def comparison(self):
         pass
         #trigger comparison mechanism -> core class
         #display: WIP
@@ -92,9 +115,16 @@ class MainWindow(QMainWindow):
 
     def add_genre_selector(self):
         dd = QComboBox(parent=self)
-        for genre in self.genrelist:
-            dd.addItem(genre)
+        compfilter = QSortFilterProxyModel(dd)
+        compfilter.setFilterCaseSensitivity(0)
+        compfilter.setSourceModel(dd.model())
+        comp = QCompleter(compfilter, dd)
+        comp.setCaseSensitivity(0)
+        comp.setCompletionMode(QCompleter.PopupCompletion)
+        dd.setCompleter(comp)
+        dd.addItems(self.genrelist)
         self.toolbar.addWidget(dd)
+        self.selectorlist.append(dd)
 
     def add_album(self, album):
         if isinstance(album, Album):

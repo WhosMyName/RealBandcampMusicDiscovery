@@ -4,13 +4,13 @@ import sys
 import threading
 from time import sleep
 import logging
-from tags import Tag
 from album import Album
 from math import ceil
 
 LOG_FORMAT = '%(asctime)-15s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(levelname)s | %(message)s'
 LOGGER = logging.getLogger('rbmd.htmlparser')
-strmhdlr = logging.StreamHandler(sys.stdout)
+LOGGER.setLevel(logging.DEBUG)
+strmhdlr = logging.StreamHandler(stream=sys.stdout)
 strmhdlr.setLevel(logging.INFO)
 strmhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
 flhdlr = logging.FileHandler("../logs/error.log", mode='a', encoding="utf-8", delay=False)
@@ -29,6 +29,7 @@ class HTMLParser(threading.Thread):
         self.stop.set()
 
     def parse_tags(self, data):
+        print("tags2")
         LOGGER.info("Parsing Tags")
         taglist = set()
         for line in data:
@@ -36,7 +37,8 @@ class HTMLParser(threading.Thread):
                 tag = line.split("/tag/")[1].split("\" ")[0]
                 LOGGER.info("Found Tag: %s" % tag)
                 taglist.add(tag)
-        return taglist
+        print("taglist")
+        return sorted(taglist)
     
     def parse_albums(self, data):
         LOGGER.info("Parsing Albums")
