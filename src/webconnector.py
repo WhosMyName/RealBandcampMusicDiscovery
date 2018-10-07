@@ -39,8 +39,9 @@ class Connector(threading.Thread):
         #LOGGER.debug(resp.content.decode("utf-8"))
         return self.parser.parse_tags(resp.content.decode("utf-8").split("\n"))
 
-    def get_albums(self, tag):
-        timeframes = ["-1", "0", "527", "526", "525", "524", "523", "522"]
+    def get_albums(self, func, tag):
+        LOGGER.info("Getting Albums for Tag: %s" % tag)
+        timeframes = ["-1"]#, "0", "527", "526", "525", "524", "523", "522"]
         recommlvl = ["top", "new", "rec"]
         albumlist = set()
         for timeframe in timeframes:
@@ -49,14 +50,14 @@ class Connector(threading.Thread):
                 resp1 = self.session.get(self.apiurl % (tag, recomm, "0", timeframe))
                 maxpages = self.parser.parse_maxpages(resp1.json())
                 LOGGER.debug("MaxPages for %s is %s" % (self.apiurl, maxpages) % (tag, recomm, "0", timeframe))
-                for pagenum in range(0,maxpages):
+                for pagenum in range(0, 1): #maxpages):
                     LOGGER.debug("Getting data from %s" % self.apiurl % (tag, recomm, pagenum, timeframe))
                     resp2 = self.session.get(self.apiurl % (tag, recomm, pagenum, timeframe))
                     albums = self.parser.parse_albums(resp2.json())
-                    LOGGER.debug("%r" % albums)
                     for album in albums:
-                        albumlist.add(self.update_album_genre(album))
-        return albumlist
+                        album = self.update_album_genre(album)
+                    LOGGER.debug("%r" % albums)
+                    func(albums)
 
     def update_album_genre(self, album):
         LOGGER.info("Updating Tags for %s" % album.name)
@@ -73,7 +74,7 @@ class Connector(threading.Thread):
 
     def run(self):
         while not self.stop.is_set():
-            sleep(1)
+            sleep(0.1)
 
 def __main__():
     conn = Connector()

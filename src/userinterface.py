@@ -1,4 +1,4 @@
-from PyQt5 import QtCore, QtGui, Qt
+from PyQt5 import QtCore, QtGui
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
@@ -44,13 +44,8 @@ class MainWindow(QMainWindow):
         self.initToolbar()
         self.show()
 
-    #da gud shit
-    #add toolbar
-    #add dynamic drop-downs (list?) - qwq
-    #add btn for more filters
-    #add content to those lists
-    #eval
-    #def add_
+    def __del__(self):
+        self.core.__del__()
 
     def initToolbar(self):
         self.toolbar = self.addToolBar("Generic Foobar")
@@ -70,23 +65,29 @@ class MainWindow(QMainWindow):
         self.add_genre_selector()
 
     def refresh(self):
+        LOGGER.info("refreshing selection")
         comp = []
         for selector in self.selectorlist:
-            comp.append(selector.currentData(0))
-        LOGGER.info(comp)
-        self.albumlist(self.core.refresh(comp))
+            if selector != "":
+                comp.append(selector.currentData(0))
+        LOGGER.debug(comp)
+        self.core.refresh(self.updateAlbums, comp)
         
-
-        #add check for:
-        #empty selectors
-        #first val        passid run
+    def updateAlbums(self, albums):
+        LOGGER.info("Updating Albums")
+        self.albumlist.update(albums)
+        for album in self.albumlist:
+            self.add_album(album) 
+        self.updateLayout()
 
     def comparison(self):
-        pass
-        #trigger comparison mechanism -> core class
-        #display: WIP
-        #display results
-        #display window/resizable toolbar/ with Album.url
+        comp = set()
+        for selector in self.selectorlist:
+            comp.add(selector.currentData(0))
+        LOGGER.debug(comp)
+        self.albumlist = self.core.compare(comp, self.albumlist)
+        self.updateLayout()
+        LOGGER.info("%r" % self.albumlist)
 
 
     def initMenu(self):
@@ -116,11 +117,12 @@ class MainWindow(QMainWindow):
     def add_genre_selector(self):
         dd = QComboBox(parent=self)
         compfilter = QSortFilterProxyModel(dd)
-        compfilter.setFilterCaseSensitivity(0)
+        compfilter.setFilterCaseSensitivity(QtCore.Qt.CaseInsensitive)
         compfilter.setSourceModel(dd.model())
         comp = QCompleter(compfilter, dd)
-        comp.setCaseSensitivity(0)
-        comp.setCompletionMode(QCompleter.PopupCompletion)
+        comp.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
+        comp.setCompletionMode(QCompleter.UnfilteredPopupCompletion)
+        comp.setFilterMode(QtCore.Qt.MatchContains)
         dd.setCompleter(comp)
         dd.addItems(self.genrelist)
         self.toolbar.addWidget(dd)
@@ -128,14 +130,18 @@ class MainWindow(QMainWindow):
 
     def add_album(self, album):
         if isinstance(album, Album):
+            LOGGER.debug("Adding Album %s" % album.name)
             btn = QPushButton("%s - %s" % (album.band, album.name))
             icn = QIcon() # see ref doc
             btn.setIcon(icn)
             btn.setIconSize(QSize(200, 200))
             self.btnlist.append(btn)
-            self.updateLayout()
+        else:
+            LOGGER.error("Wanted to add %s, but it's not an Album")
+            #self.updateLayout()
 
     def updateLayout(self):
+        LOGGER.info("Refreshing Layout")
         for btn in self.btnlist:
             self.layout.removeWidget(btn)
         positions = [ (x,y) for x in range(int(len(self.btnlist)/5)) for y in range(5) ]
@@ -145,8 +151,6 @@ class MainWindow(QMainWindow):
 def __main__():
     app = QApplication(sys.argv)
     window = MainWindow()
-    for num in range(0, 15):
-        window.btnlist.append(QPushButton(str(num)))
     window.updateLayout()
     sys.exit(app.exec_())
 

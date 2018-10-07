@@ -25,17 +25,19 @@ class Core(threading.Thread):
         LOGGER.debug("Initialized %s" % self)
 
     def __del__(self):
+        self.connector.__del__()
         self.stop.set()
 
     def run(self):
         while not self.stop.is_set():
-            time.sleep(1)
+            time.sleep(0.1)
 
-    def refresh(self, taglist):
-        albumlist = set()
+    def refresh(self, func, taglist):
+        #albumlist = set()
         for tag in taglist:
-            albumlist.add(self.connector.get_albums(tag))
-        return albumlist
+            self.connector.get_albums(func, tag)
+        #        albumlist.add(album)
+        #return albumlist
 
     def get_genres(self):
         return self.connector.get_tags()
@@ -46,8 +48,10 @@ class Core(threading.Thread):
         #taglist = set(taglist)
         dt = time.time()
         for album in albumlist:
+            LOGGER.debug("%s - %s [%r]" % (album.name, album.genre, taglist))
             if taglist.issubset(album.genre):
                 compareset.add(album)
+                LOGGER.debug("Added %s after comparison" % album.name)
         dt1 = time.time()
         LOGGER.debug("Time spent comparing: %s" % (dt1-dt))
         return compareset

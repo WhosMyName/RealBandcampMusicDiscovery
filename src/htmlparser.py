@@ -29,15 +29,13 @@ class HTMLParser(threading.Thread):
         self.stop.set()
 
     def parse_tags(self, data):
-        print("tags2")
         LOGGER.info("Parsing Tags")
         taglist = set()
         for line in data:
             if "class=\"tag size" in line:
                 tag = line.split("/tag/")[1].split("\" ")[0]
-                LOGGER.info("Found Tag: %s" % tag)
+                LOGGER.debug("Found Tag: %s" % tag)
                 taglist.add(tag)
-        print("taglist")
         return sorted(taglist)
     
     def parse_albums(self, data):
@@ -50,8 +48,10 @@ class HTMLParser(threading.Thread):
         return albumlist
 
     def parse_maxpages(self, data):
+        LOGGER.info("Getting Maxpages")
         maxentries = data["total_count"]
         maxpages = ceil(maxentries/48)
+        LOGGER.debug("Maxpages: %s" % maxpages)
         return int(maxpages)
 
     def parse_album_genres(self, data):
@@ -60,7 +60,7 @@ class HTMLParser(threading.Thread):
         for line in data:
             if "class=\"tag\" href=" in line:
                 genre = line.split("/tag/")[1].split("\" ")[0]
-                LOGGER.info("Found Genre: %s" % genre) # LOGGER.debug
+                LOGGER.debug("Found Genre: %s" % genre) # LOGGER.debug
                 genrelist.add(genre)
         return genrelist
 
@@ -71,4 +71,4 @@ class HTMLParser(threading.Thread):
 
     def run(self):
         while not self.stop.is_set():
-            sleep(1)
+            sleep(0.1)
