@@ -5,7 +5,6 @@ import threading
 from time import sleep
 import logging
 from album import Album
-from math import ceil
 
 LOG_FORMAT = '%(asctime)-15s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(levelname)s | %(message)s'
 LOGGER = logging.getLogger('rbmd.htmlparser')
@@ -41,18 +40,40 @@ class HTMLParser(threading.Thread):
     def parse_albums(self, data):
         LOGGER.info("Parsing Albums")
         albumlist = set()
-        for rawalbum in data["items"]:
-            alb = Album(rawalbum["primary_text"], "https://%s.bandcamp.com/album/%s" % (rawalbum["url_hints"]["subdomain"], rawalbum["url_hints"]["slug"]),rawalbum["secondary_text"], None)
-            LOGGER.debug(alb)
-            albumlist.add(alb)
+        albool = False
+
+        name = ""
+        url = ""
+        band = ""
+        cover_url = ""
+
+        for line in data:
+            if ">new arrivals</a>" in line and not albool:
+                albool = True
+            elif "<a href=" in line and albool:
+                url = line.split("<a href=\"")[1].split("\" title")[0]
+                name = line.split("title=\"")[1].split("\">")[0]
+            elif "<div class=\"tralbum" in line and albool:
+                cover_url = line.split("url(")[1].split(")'")[0]
+            elif "<div class=\"itemsubtext" in line and albool:
+                band = line.split("\">")[1].split("</")[0]
+                alb = Album(name, url, band, cover_url)
+                LOGGER.debug(alb)
+                albumlist.add(alb)
+            elif "<div class=\"pager_" in line:
+                albool = False
         return albumlist
 
     def parse_maxpages(self, data):
         LOGGER.info("Getting Maxpages")
-        maxentries = data["total_count"]
-        maxpages = ceil(maxentries/48)
+        maxpages = 0
+        for line in data:
+            if "pagenum round4" in line:
+                page = int(line.split("nofollow\">")[1].split("</a>")[0])
+                if page > maxpages:
+                    maxpages = page
         LOGGER.debug("Maxpages: %s" % maxpages)
-        return int(maxpages)
+        return maxpages
 
     def parse_album_genres(self, data):
         LOGGER.info("Parsing Tags")
