@@ -40,9 +40,15 @@ class MainWindow(QMainWindow):
         self.queue = multiprocessing.Queue(5000)
         self.core = Core(self.queue)
         self.core.start()
-        self.core.get_genres()
+        self.core.setUpdateAlbumsCallBack(self.updateAlbums)
+        self.core.setFetchedAlbumsCallback(self.updateFetchedAlbums)
+        self.core.fetchTagsEvent.set()
         self.connector = Connector(self.queue)
         self.connector.start()
+
+        self.timer = QTimer(self)
+        self.timer.start(5000)
+        self.timer.timeout.connect(self.syncCoreWithConnector)
 
         self.layout = QGridLayout()
         self.widget = QWidget()
@@ -55,6 +61,7 @@ class MainWindow(QMainWindow):
         self.genrelist = set()
         self.btnlist = []
         self.selectorlist = []
+        self.fetchedAlbums = {}
 
         self.closeEvent = self.close
         self.statusBar()
@@ -78,17 +85,17 @@ class MainWindow(QMainWindow):
     def waitForInit(self):
         msgbox = QMessageBox(self)
         msgbox.setText("Initializing...")
-        #msgbox.standardButton(0)
-        msgbox.exec()
+        msgbox.show()
         while len(self.genrelist) == 0:
             self.getTags()
-            time.sleep(0.25)
-        msgbox.close()
+            time.sleep(0.1)
+        msgbox.done(0)
+        msgbox.destroy(True)
+        LOGGER.info("Init done")
         self.setStatusTip("Init done!")
         self.compare.setEnabled(True)
         self.reload.setEnabled(True)
         self.more.setEnabled(True)
-
 
 
     def initToolbar(self):
@@ -141,10 +148,17 @@ class MainWindow(QMainWindow):
         LOGGER.info("refreshing selection")
         comp = set()
         for selector in self.selectorlist:
-            if selector != "":
+            if selector == "":
+                self.selectorlist.remove(selector)
+                self.toolbar.removeWidget(selector)
+            elif selector not in self.fetchedAlbums.keys():
                 comp.add(selector.currentData(0))
+            else:
+                self.albumlist.append(self.fetchedAlbums[selector])
         LOGGER.debug(comp)
-        self.core.refresh(self.updateAlbums, comp)
+        self.core.putFetchTagsToQ(comp)
+        #self.core.fetchAlbumEvent.set()
+        #check this condition in set intervals
         LOGGER.info("DONE")
 
 
@@ -154,6 +168,16 @@ class MainWindow(QMainWindow):
         for album in self.albumlist:
             self.add_album(album) 
         self.updateLayout()
+
+
+    def updateFetchedAlbums(self, albumsdict):
+        for key, value in albumsdict.items():
+            if key in self.fetchedAlbums.keys():
+                albumsfetched = self.fetchedAlbums[key]
+                albumsfetched.update(value)
+                self.fetchedAlbums[key] = albumsfetched
+            else:
+                self.fetchedAlbums[key] = value
 
 
     def comparison(self):
@@ -176,7 +200,6 @@ class MainWindow(QMainWindow):
 
 
     def add_genre_selector(self):
-        self.getTags()
         dd = QComboBox(parent=self)
         compfilter = QSortFilterProxyModel(dd)
         compfilter.setFilterCaseSensitivity(QtCore.Qt.CaseInsensitive)
@@ -211,6 +234,10 @@ class MainWindow(QMainWindow):
         positions = [ (x,y) for x in range(int(len(self.btnlist)/5)) for y in range(5) ]
         for position, btn in zip(positions, self.btnlist):
             self.layout.addWidget(btn, *position)
+
+
+    def syncCoreWithConnector(self):
+        LOGGER.error("Timer done")
 
 
 def __main__():

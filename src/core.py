@@ -22,19 +22,29 @@ class Core(threading.Thread):
         threading.Thread.__init__(self)
         self.queue = queue
         self.tags = set()
+        self.albums = set()
+        self.fetchTags = set()
         self.stop = threading.Event()
         self.fetchTagsEvent = threading.Event()
         self.fetchAlbumEvent = threading.Event()
         self.fetchTagsEvent.clear()
         self.fetchAlbumEvent.clear()
-        ##self.connector = Connector()
-        ##self.connector.start()
+        self.updateAlbumsCallBack = None
+        self.fetchedAlbumsCallback = None
         LOGGER.debug("Initialized %s" % self)
 
 
     def __del__(self):
         #self.connector.__del__()
         self.stop.set()
+
+
+    def setUpdateAlbumsCallBack(self, fnc):
+        self.updateAlbumsCallBack = fnc
+
+
+    def setFetchedAlbumsCallback(self, fnc):
+        self.fetchedAlbumsCallback = fnc
 
 
     def run(self):
@@ -44,6 +54,10 @@ class Core(threading.Thread):
                 if self.getTagsFromQ():
                     self.fetchTagsEvent.clear()
                     LOGGER.info("Got tags from queueueue")
+            if self.fetchAlbumEvent.is_set():
+                if self.getAlbumsFromQ():
+                    self.fetchAlbumEvent.clear()
+                    LOGGER.info("Got Albums from queueueue")
             
             time.sleep(0.1)
 
@@ -58,18 +72,23 @@ class Core(threading.Thread):
             return False
 
 
-    def refresh(self, func, taglist):
-        LOGGER.error("FNC: %s Tags: %s" % (taglist, func))
-        #self.connector.set_taglist(taglist)
-        #self.connector.set_fnc(func)
-        #self.connector.get.set()
-        #        albumlist.add(album)
-        #return albumlist
+    def getAlbumsFromQ(self):
+        if not self.queue.empty():
+            while not self.queue.empty():
+                self.albums.add(self.queue.get())
+                self.updateAlbumsCallBack(self.albums)
+            #LOGGER.debug(self.tags)
+            #send albums (with tag) to UI {"tag": set()}
+            return True
+        else:
+            return False
 
 
-    def get_genres(self):
-        self.fetchTagsEvent.set()
-        #return #self.connector.get_tags()
+    def putFetchTagsToQ(self, taglist):
+        self.fetchTags.update(taglist)
+        if self.queue.empty():
+            for tag in self.fetchTags:
+                    self.queue.put(tag)
 
 
     def compare(self, taglist, albumlist):

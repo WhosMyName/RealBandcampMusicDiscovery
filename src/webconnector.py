@@ -26,7 +26,6 @@ class Connector(multiprocessing.Process):
         #threading.Thread.__init__(self)
         multiprocessing.Process.__init__(self)
         self.queue = queue
-        #self.fnc = None
 
         self.getTagsEvent = multiprocessing.Event()
         self.getAlbumsEvent = multiprocessing.Event()
@@ -48,16 +47,6 @@ class Connector(multiprocessing.Process):
         self.stop.set()
 
 
-    def set_taglist(self, taglist):
-        LOGGER.info("Updating internal Taglist")
-        self.taglist = taglist
-
-
-    def set_fnc(self, fnc):
-        LOGGER.info("Updating CallBack")
-        self.fnc = fnc
-
-
     def get_tags(self):
         LOGGER.info("Obtaining Tags")
         resp = self.session.get("https://bandcamp.com/tags")
@@ -71,10 +60,15 @@ class Connector(multiprocessing.Process):
         #return self.parser.parse_tags(resp.content.decode("utf-8").split("\n"))
 
 
+    def getTagsFromQ(self):
+        while not self.queue.empty():
+            self.queue.g
+
+
     def get_albums(self):
         self.get.clear()
         LOGGER.info("Getting Albums for Tags: %s with CallBack %s" % (self.taglist, self.fnc))
-        if len(self.taglist) is not 0 and self.fnc is not None:
+        if len(self.taglist) is not 0:
             for tag in self.taglist:
                 resp1 = self.session.get(self.apiurl % (tag, "0"))
                 maxpages = self.parser.parse_maxpages(resp1.content.decode("utf-8").split("\n"))
@@ -86,10 +80,10 @@ class Connector(multiprocessing.Process):
                         #LOGGER.debug("%r" % albums)
                     self.fnc(albums)
         else:
-            LOGGER.error("Missing Callback or Tags, can't update Albums")
+            LOGGER.error("Missing Tags, can't obtain Albums")
                     
 
-    def update_album_genre(self, album):
+    def update_album_genre(self, album):#switch to metadata and get pictures too
         LOGGER.debug("Updating Tags for %s" % album.name)
         resp = self.session.get(album.url)
         album.genre = self.parser.parse_album_genres(resp.content.decode("utf-8").split("\n"))
