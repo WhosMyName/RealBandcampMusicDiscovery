@@ -1,7 +1,7 @@
 import logging
 import sys
 import threading
-import time
+from time import sleep, time
 #from webconnector import Connector
 
 LOG_FORMAT = '%(asctime)-15s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(levelname)s | %(message)s'
@@ -24,11 +24,15 @@ class Core(threading.Thread):
         self.tags = set()
         self.albums = set()
         self.fetchTags = set()
+
         self.stop = threading.Event()
         self.fetchTagsEvent = threading.Event()
         self.fetchAlbumEvent = threading.Event()
+        self.putTagsInQ = threading.Event()
         self.fetchTagsEvent.clear()
         self.fetchAlbumEvent.clear()
+        self.putTagsInQ.clear()
+
         self.updateAlbumsCallBack = None
         self.fetchedAlbumsCallback = None
         LOGGER.debug("Initialized %s" % self)
@@ -54,12 +58,12 @@ class Core(threading.Thread):
                 if self.getTagsFromQ():
                     self.fetchTagsEvent.clear()
                     LOGGER.info("Got tags from queueueue")
-            if self.fetchAlbumEvent.is_set():
+            elif self.fetchAlbumEvent.is_set():
                 if self.getAlbumsFromQ():
-                    self.fetchAlbumEvent.clear()
+                    #self.fetchAlbumEvent.clear()
                     LOGGER.info("Got Albums from queueueue")
-            
-            time.sleep(0.1)
+            else:
+                sleep(0.1)
 
 
     def getTagsFromQ(self):
@@ -89,19 +93,20 @@ class Core(threading.Thread):
         if self.queue.empty():
             for tag in self.fetchTags:
                     self.queue.put(tag)
+        self.putFetchTagsToQ.set()
 
 
     def compare(self, taglist, albumlist):
         LOGGER.info("Comparing for tags: %r" % taglist)
         compareset = set()
         #taglist = set(taglist)
-        dt = time.time()
+        dt = time()
         for album in albumlist:
             LOGGER.debug("%s - %s [%r]" % (album.name, album.genre, taglist))
             if taglist.issubset(album.genre):
                 compareset.add(album)
                 LOGGER.debug("Added %s after comparison" % album.name)
-        dt1 = time.time()
+        dt1 = time()
         LOGGER.debug("Time spent comparing: %s" % (dt1-dt))
         return compareset
 

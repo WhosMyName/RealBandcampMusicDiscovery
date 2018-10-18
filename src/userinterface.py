@@ -1,5 +1,5 @@
 import sys
-import time
+from time import sleep
 import logging
 import multiprocessing
 from PyQt5 import QtCore, QtGui
@@ -26,8 +26,6 @@ LOGGER.addHandler(flhdlr)
 
 
 ##################################
-#do an init screen 
-#make all close correctly if closed manually
 #get exceptions into logs
 ##################################
 
@@ -88,7 +86,7 @@ class MainWindow(QMainWindow):
         msgbox.show()
         while len(self.genrelist) == 0:
             self.getTags()
-            time.sleep(0.1)
+            sleep(0.1)
         msgbox.done(0)
         msgbox.destroy(True)
         LOGGER.info("Init done")
@@ -159,7 +157,7 @@ class MainWindow(QMainWindow):
         self.core.putFetchTagsToQ(comp)
         #self.core.fetchAlbumEvent.set()
         #check this condition in set intervals
-        LOGGER.info("DONE")
+        #LOGGER.info("DONE")
 
 
     def updateAlbums(self, albums):
@@ -237,7 +235,14 @@ class MainWindow(QMainWindow):
 
 
     def syncCoreWithConnector(self):
-        LOGGER.error("Timer done")
+        LOGGER.error("Syncing...")
+        if self.core.putTagsInQ.is_set():
+            self.connector.getTagsFromQ.set()
+            self.core.putFetchTagsToQ.clear()
+        elif self.connector.albumsReadyEvent.is_set():
+            self.core.fetchAlbumEvent.set()
+        elif not self.connector.albumsReadyEvent.is_set():
+            self.core.fetchAlbumEvent.clear()
 
 
 def __main__():
