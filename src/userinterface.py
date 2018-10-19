@@ -45,7 +45,7 @@ class MainWindow(QMainWindow):
         self.connector.start()
 
         self.timer = QTimer(self)
-        self.timer.start(5000)
+        self.timer.start(500)
         self.timer.timeout.connect(self.syncCoreWithConnector)
 
         self.layout = QGridLayout()
@@ -62,12 +62,13 @@ class MainWindow(QMainWindow):
         self.fetchedAlbums = {}
 
         self.closeEvent = self.close
+        self.showEvent = self.show()
         self.statusBar()
         self.setStatusTip("Initializing...")
+        self.firstloaded = True
         self.initMenu()
         self.initToolbar()
         self.show()
-        self.waitForInit()
 
 
     def __del__(self):
@@ -235,7 +236,12 @@ class MainWindow(QMainWindow):
 
 
     def syncCoreWithConnector(self):
-        LOGGER.error("Syncing...")
+        LOGGER.info("Syncing...")
+        if self.firstloaded:
+            self.firstloaded = False
+            self.timer.stop()
+            self.timer.start(5000)
+            self.waitForInit()
         if self.core.putTagsInQ.is_set():
             self.connector.getTagsFromQ.set()
             self.core.putFetchTagsToQ.clear()
