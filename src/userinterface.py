@@ -2,6 +2,7 @@ import sys
 from time import sleep
 import logging
 import multiprocessing
+import traceback
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -18,11 +19,14 @@ LOGGER.setLevel(logging.DEBUG)
 strmhdlr = logging.StreamHandler(sys.stdout)
 strmhdlr.setLevel(logging.INFO)
 strmhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
-flhdlr = logging.FileHandler("../logs/error.log", mode="w", encoding="utf-8", delay=False)
+flhdlr = logging.FileHandler("../logs/error.log", mode="a", encoding="utf-8", delay=False)
 flhdlr.setLevel(logging.DEBUG)
 flhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
 LOGGER.addHandler(strmhdlr)
 LOGGER.addHandler(flhdlr)
+def uncaught_exceptions(type, value, tb):
+    LOGGER.critical("Uncaught Exception of type %s was caught: %s\nTraceback:\n%s" % (type, value, traceback.print_tb(tb)))
+sys.excepthook = uncaught_exceptions
 
 
 ##################################
@@ -45,7 +49,7 @@ class MainWindow(QMainWindow):
         self.connector.start()
 
         self.timer = QTimer(self)
-        self.timer.start(500)
+        self.timer.start(750)
         self.timer.timeout.connect(self.syncCoreWithConnector)
 
         self.layout = QGridLayout()
@@ -61,6 +65,8 @@ class MainWindow(QMainWindow):
         self.selectorlist = []
         self.fetchedAlbums = {}
 
+        self.updateEvent = multiprocessing.Event()
+        self.updateEvent.clear()
         self.closeEvent = self.close
         self.showEvent = self.show()
         self.statusBar()
@@ -85,16 +91,19 @@ class MainWindow(QMainWindow):
         msgbox = QMessageBox(self)
         msgbox.setText("Initializing...")
         msgbox.show()
-        while len(self.genrelist) == 0:
-            self.getTags()
+        while not self.connector.tagsReadyEvent.is_set():
             sleep(0.1)
+        self.connector.tagsReadyEvent.clear()
+        self.core.fetchTagsEvent.set()
+        sleep(2)
+        self.getTags()
         msgbox.done(0)
         msgbox.destroy(True)
-        LOGGER.info("Init done")
-        self.setStatusTip("Init done!")
         self.compare.setEnabled(True)
         self.reload.setEnabled(True)
         self.more.setEnabled(True)
+        self.setStatusTip("Init done!")
+        LOGGER.info("Init done")
 
 
     def initToolbar(self):
@@ -165,8 +174,8 @@ class MainWindow(QMainWindow):
         LOGGER.info("Updating Albums")
         self.albumlist.update(albums)
         for album in self.albumlist:
-            self.add_album(album) 
-        self.updateLayout()
+            self.add_album(album)
+        self.updateEvent.set()
 
 
     def updateFetchedAlbums(self, albumsdict):
@@ -185,7 +194,7 @@ class MainWindow(QMainWindow):
             comp.add(selector.currentData(0))
         LOGGER.debug(comp)
         self.albumlist = self.core.compare(comp, self.albumlist)
-        self.updateLayout()
+        self.updateEvent.set()
         LOGGER.info("%r" % self.albumlist)
 
 
@@ -223,7 +232,7 @@ class MainWindow(QMainWindow):
             self.btnlist.append(btn)
         else:
             LOGGER.error("Wanted to add %s, but it's not an Album")
-            #self.updateLayout()
+            #self.updateEvent.set()
 
 
     def updateLayout(self):
@@ -235,7 +244,7 @@ class MainWindow(QMainWindow):
             self.layout.addWidget(btn, *position)
 
 
-    def syncCoreWithConnector(self):
+    def syncCoreWithConnector(self):# call whatever I'm  calling from core with extra getfuncts to UI
         LOGGER.info("Syncing...")
         if self.firstloaded:
             self.firstloaded = False
@@ -243,12 +252,16 @@ class MainWindow(QMainWindow):
             self.timer.start(5000)
             self.waitForInit()
         if self.core.putTagsInQ.is_set():
-            self.connector.getTagsFromQ.set()
-            self.core.putFetchTagsToQ.clear()
+            LOGGER.info("core should've put tags in Q")
+            self.connector.getFetchTagsFromQ.set()
+            self.core.putTagsInQ.clear()
         elif self.connector.albumsReadyEvent.is_set():
             self.core.fetchAlbumEvent.set()
         elif not self.connector.albumsReadyEvent.is_set():
             self.core.fetchAlbumEvent.clear()
+        #elif self.updateEvent.is_set():
+        self.updateLayout()
+        #    self.updateEvent.clear()
 
 
 def __main__():

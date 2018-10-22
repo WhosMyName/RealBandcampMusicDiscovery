@@ -13,11 +13,14 @@ LOGGER.setLevel(logging.DEBUG)
 strmhdlr = logging.StreamHandler(sys.stdout)
 strmhdlr.setLevel(logging.INFO)
 strmhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
-flhdlr = logging.FileHandler("../logs/error.log", mode="w", encoding="utf-8", delay=False)
+flhdlr = logging.FileHandler("../logs/error.log", mode="a", encoding="utf-8", delay=False)
 flhdlr.setLevel(logging.DEBUG)
 flhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
 LOGGER.addHandler(strmhdlr)
 LOGGER.addHandler(flhdlr)
+def uncaught_exceptions(type, value, tb):
+    LOGGER.exception("Uncaught Exception of type %s was caught: %s\nTraceback:\n%s" % (type, value, tb))
+sys.excepthook = uncaught_exceptions
 
 #class Connector(threading.Thread):
 class Connector(multiprocessing.Process):
@@ -32,6 +35,7 @@ class Connector(multiprocessing.Process):
         self.tagsReadyEvent = multiprocessing.Event()
         self.albumsReadyEvent = multiprocessing.Event()
         self.getFetchTagsFromQ = multiprocessing.Event()
+        self.tagsReadyEvent.clear()
         self.getTagsEvent.set()
 
         self.taglist = set()
@@ -57,20 +61,18 @@ class Connector(multiprocessing.Process):
             self.queue.put(tag)
             LOGGER.debug("Put %s in Q" % tag)
         self.tagsReadyEvent.set()
-        #LOGGER.warning("Putting Tags")
-        #return self.parser.parse_tags(resp.content.decode("utf-8").split("\n"))
 
 
     def getTagsFromQ(self):
         while not self.queue.empty():
             self.taglist.add(self.queue.get())
-        self.getAlbumsEvent.clear()
+        LOGGER.info("got tags from Q %s" % self.taglist)
+        self.getAlbumsEvent.set()
 
 
     def get_albums(self):
-        self.getAlbumsEvent.clear()
-        LOGGER.info("Getting Albums for Tags: %s with CallBack %s" % (self.taglist, self.fnc))
-        if len(self.taglist) is not 0 and self.getAlbumsEvent.is_set():
+        LOGGER.info("Getting Albums for Tags: %s" % self.taglist)
+        if self.getAlbumsEvent.is_set():
             for tag in self.taglist:
                 resp1 = self.session.get(self.apiurl % (tag, "0"))
                 maxpages = self.parser.parse_maxpages(resp1.content.decode("utf-8").split("\n"))
@@ -79,9 +81,9 @@ class Connector(multiprocessing.Process):
                         resp2 = self.session.get(self.apiurl % (tag, num))
                         albums = self.parser.parse_albums(resp2.content.decode("utf-8").split("\n"))
                         for album in albums:
-                            album = self.update_album_genre(album)
-                            #LOGGER.debug("%r" % albums)
-                        #put tags to Q
+                            album = self.update_album_metadata(album)
+                        #LOGGER.debug("%r" % albums)
+                        self.queue.put({tag: albums})
                         self.albumsReadyEvent.set()
                     else:
                         sleep(2)
@@ -93,19 +95,11 @@ class Connector(multiprocessing.Process):
             LOGGER.error("Missing Tags, can't obtain Albums")
                     
 
-    def update_album_genre(self, album):#switch to metadata and get pictures too
+    def update_album_metadata(self, album):#get pictures too
         LOGGER.debug("Updating Tags for %s" % album.name)
         resp = self.session.get(album.url)
         album.genre = self.parser.parse_album_genres(resp.content.decode("utf-8").split("\n"))
         return album
-
-
-    def get_album_cover(self, album):
-        #get
-        #parse
-        #dl
-        #return
-        pass
 
 
     def run(self):
@@ -114,7 +108,6 @@ class Connector(multiprocessing.Process):
             self.get_tags()
 
         while not self.stop.is_set():
-            #if self.
             if self.getAlbumsEvent.is_set():
                 self.get_albums()
             elif self.getFetchTagsFromQ.is_set():

@@ -10,11 +10,14 @@ LOGGER.setLevel(logging.DEBUG)
 strmhdlr = logging.StreamHandler(sys.stdout)
 strmhdlr.setLevel(logging.INFO)
 strmhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
-flhdlr = logging.FileHandler("../logs/error.log", mode="w", encoding="utf-8", delay=False)
+flhdlr = logging.FileHandler("../logs/error.log", mode="a", encoding="utf-8", delay=False)
 flhdlr.setLevel(logging.DEBUG)
 flhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
 LOGGER.addHandler(strmhdlr)
 LOGGER.addHandler(flhdlr)
+def uncaught_exceptions(type, value, tb):
+    LOGGER.exception("Uncaught Exception of type %s was caught: %s\nTraceback:\n%s" % (type, value, tb))
+sys.excepthook = uncaught_exceptions
 
 
 class Album():

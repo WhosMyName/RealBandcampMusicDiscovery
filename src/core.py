@@ -10,11 +10,14 @@ LOGGER.setLevel(logging.DEBUG)
 strmhdlr = logging.StreamHandler(sys.stdout)
 strmhdlr.setLevel(logging.INFO)
 strmhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
-flhdlr = logging.FileHandler("../logs/error.log", mode="w", encoding="utf-8", delay=False)
+flhdlr = logging.FileHandler("../logs/error.log", mode="a", encoding="utf-8", delay=False)
 flhdlr.setLevel(logging.DEBUG)
 flhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
 LOGGER.addHandler(strmhdlr)
 LOGGER.addHandler(flhdlr)
+def uncaught_exceptions(type, value, tb):
+    LOGGER.exception("Uncaught Exception of type %s was caught: %s\nTraceback:\n%s" % (type, value, tb))
+sys.excepthook = uncaught_exceptions
 
 class Core(threading.Thread):
 
@@ -33,6 +36,7 @@ class Core(threading.Thread):
         self.fetchAlbumEvent.clear()
         self.putTagsInQ.clear()
 
+        #excange callbacks with events
         self.updateAlbumsCallBack = None
         self.fetchedAlbumsCallback = None
         LOGGER.debug("Initialized %s" % self)
@@ -79,10 +83,11 @@ class Core(threading.Thread):
     def getAlbumsFromQ(self):
         if not self.queue.empty():
             while not self.queue.empty():
-                self.albums.add(self.queue.get())
-                self.updateAlbumsCallBack(self.albums)
-            #LOGGER.debug(self.tags)
-            #send albums (with tag) to UI {"tag": set()}
+                albums = self.queue.get()
+                for value in albums.values():
+                    self.updateAlbumsCallBack(value)
+                    #self.albums.add(value)
+            self.fetchedAlbumsCallback(albums)
             return True
         else:
             return False
@@ -93,7 +98,8 @@ class Core(threading.Thread):
         if self.queue.empty():
             for tag in self.fetchTags:
                     self.queue.put(tag)
-        self.putFetchTagsToQ.set()
+        self.putTagsInQ.set()
+        LOGGER.info("FetchTags in Q")
 
 
     def compare(self, taglist, albumlist):
@@ -112,7 +118,7 @@ class Core(threading.Thread):
 
         
     def returnTags(self):
-        if len(self.tags) > 0:
+        if not self.fetchTagsEvent.is_set():
             return self.tags
         return None
 
