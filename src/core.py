@@ -2,6 +2,7 @@ import logging
 import sys
 import threading
 from time import sleep, time
+import weakref
 #from webconnector import Connector
 
 LOG_FORMAT = '%(asctime)-15s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(levelname)s | %(message)s'
@@ -21,12 +22,13 @@ sys.excepthook = uncaught_exceptions
 
 class Core(threading.Thread):
 
-    def __init__(self, queue):
+    def __init__(self, queue, parent):
         threading.Thread.__init__(self)
         self.queue = queue
         self.tags = set()
         self.albums = set()
         self.fetchTags = set()
+        self.parent = weakref.ref(parent)
 
         self.stop = threading.Event()
         self.fetchTagsEvent = threading.Event()
@@ -85,9 +87,9 @@ class Core(threading.Thread):
             while not self.queue.empty():
                 albums = self.queue.get()
                 for value in albums.values():
-                    self.updateAlbumsCallBack(value)
+                    self.parent.updateAlbumsCallBack(value)
                     #self.albums.add(value)
-            self.fetchedAlbumsCallback(albums)
+            self.parent.fetchedAlbumsCallback(albums)
             return True
         else:
             return False

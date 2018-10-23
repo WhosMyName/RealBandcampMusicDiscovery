@@ -81,7 +81,7 @@ class Connector(multiprocessing.Process):
                         resp2 = self.session.get(self.apiurl % (tag, num))
                         albums = self.parser.parse_albums(resp2.content.decode("utf-8").split("\n"))
                         for album in albums:
-                            album = self.update_album_metadata(album)
+                            album.genre = tag #self.update_album_metadata(album)
                         #LOGGER.debug("%r" % albums)
                         self.queue.put({tag: albums})
                         self.albumsReadyEvent.set()

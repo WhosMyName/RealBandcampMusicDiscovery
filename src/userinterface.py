@@ -40,7 +40,7 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.queue = multiprocessing.Queue(5000)
-        self.core = Core(self.queue)
+        self.core = Core(self.queue, self)
         self.core.start()
         self.core.setUpdateAlbumsCallBack(self.updateAlbums)
         self.core.setFetchedAlbumsCallback(self.updateFetchedAlbums)
