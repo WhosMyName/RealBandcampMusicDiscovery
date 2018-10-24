@@ -1,8 +1,7 @@
-"""defcdw"""
+""" generic class to hold allalbum related data """
 
 import sys
 import logging
-#from tags import Tag
 
 LOG_FORMAT = '%(asctime)-15s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(levelname)s | %(message)s'
 LOGGER = logging.getLogger('rbmd.album')

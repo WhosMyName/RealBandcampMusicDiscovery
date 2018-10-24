@@ -1,4 +1,4 @@
-"""rewfew"""
+""" class to allow easy parsing in seperate thread """
 
 import sys
 import threading
@@ -21,14 +21,12 @@ def uncaught_exceptions(type, value, tb):
     LOGGER.exception("Uncaught Exception of type %s was caught: %s\nTraceback:\n%s" % (type, value, tb))
 sys.excepthook = uncaught_exceptions
 
-class HTMLParser(threading.Thread):
+class HTMLParser():
     def __init__(self):
-        threading.Thread.__init__(self)
-        self.stop = threading.Event()
         LOGGER.debug("Initialized %s" % self)
 
     def __del__(self):
-        self.stop.set()
+        del(self)
 
     def parse_tags(self, data):
         LOGGER.info("Parsing Tags")
@@ -36,7 +34,7 @@ class HTMLParser(threading.Thread):
         for line in data:
             if "class=\"tag size" in line:
                 tag = line.split("/tag/")[1].split("\" ")[0]
-                LOGGER.debug("Found Tag: %s" % tag)
+                #LOGGER.debug("Found Tag: %s" % tag)
                 taglist.add(tag)
         return sorted(taglist)
     
@@ -65,6 +63,7 @@ class HTMLParser(threading.Thread):
                 albumlist.add(alb)
             elif "<div class=\"pager_" in line:
                 albool = False
+        LOGGER.info("returning to connector")
         return albumlist
 
     def parse_maxpages(self, data):
@@ -92,7 +91,3 @@ class HTMLParser(threading.Thread):
         #parse url from data
         #return url
         pass
-
-    def run(self):
-        while not self.stop.is_set():
-            sleep(0.1)

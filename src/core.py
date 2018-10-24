@@ -27,6 +27,7 @@ class Core(threading.Thread):
         self.queue = queue
         self.tags = set()
         self.albums = set()
+
         self.fetchTags = set()
         self.parent = weakref.ref(parent)
 
@@ -57,7 +58,7 @@ class Core(threading.Thread):
         self.fetchedAlbumsCallback = fnc
 
 
-    def run(self):
+    def run(self): #
         LOGGER.debug("Started run for %s" % self)
         while not self.stop.is_set():
             if self.fetchTagsEvent.is_set():
@@ -72,7 +73,7 @@ class Core(threading.Thread):
                 sleep(0.1)
 
 
-    def getTagsFromQ(self):
+    def getTagsFromQ(self): #
         if not self.queue.empty():
             while not self.queue.empty():
                 self.tags.add(self.queue.get())
@@ -82,7 +83,7 @@ class Core(threading.Thread):
             return False
 
 
-    def getAlbumsFromQ(self):
+    def getAlbumsFromQ(self): #
         if not self.queue.empty():
             while not self.queue.empty():
                 albums = self.queue.get()
@@ -95,7 +96,7 @@ class Core(threading.Thread):
             return False
 
 
-    def putFetchTagsToQ(self, taglist):
+    def putFetchTagsToQ(self, taglist): #
         self.fetchTags.update(taglist)
         if self.queue.empty():
             for tag in self.fetchTags:
@@ -104,7 +105,7 @@ class Core(threading.Thread):
         LOGGER.info("FetchTags in Q")
 
 
-    def compare(self, taglist, albumlist):
+    def compare(self, taglist, albumlist): #
         LOGGER.info("Comparing for tags: %r" % taglist)
         compareset = set()
         #taglist = set(taglist)
@@ -119,7 +120,7 @@ class Core(threading.Thread):
         return compareset
 
         
-    def returnTags(self):
+    def returnTags(self): #
         if not self.fetchTagsEvent.is_set():
             return self.tags
         return None

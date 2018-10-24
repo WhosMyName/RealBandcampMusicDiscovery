@@ -4,8 +4,9 @@ import multiprocessing
 from time import sleep
 import logging
 import sys
-#from album import Album
+
 from htmlparser import HTMLParser
+from messages import *
 
 LOG_FORMAT = '%(asctime)-15s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(levelname)s | %(message)s'
 LOGGER = logging.getLogger('rbmd.webconnector')
@@ -35,6 +36,8 @@ class Connector(multiprocessing.Process):
         self.tagsReadyEvent = multiprocessing.Event()
         self.albumsReadyEvent = multiprocessing.Event()
         self.getFetchTagsFromQ = multiprocessing.Event()
+        self.pauseFetch = multiprocessing.Event()
+        self.pauseFetch.clear()
         self.tagsReadyEvent.clear()
         self.getTagsEvent.set()
 
@@ -42,7 +45,6 @@ class Connector(multiprocessing.Process):
         self.stop = multiprocessing.Event()
         self.session = requests.Session()
         self.parser = HTMLParser()
-        self.parser.start()
         self.apiurl = "https://bandcamp.com/tag/%s?page=%s" # tag, pagenum
         LOGGER.debug("Initialized %s" % self)
 
@@ -59,11 +61,12 @@ class Connector(multiprocessing.Process):
         tags = self.parser.parse_tags(resp.content.decode("utf-8").split("\n"))
         for tag in tags:
             self.queue.put(tag)
-            LOGGER.debug("Put %s in Q" % tag)
+            #LOGGER.debug("Put %s in Q" % tag)
         self.tagsReadyEvent.set()
 
 
     def getTagsFromQ(self):
+        self.getFetchTagsFromQ.clear()
         while not self.queue.empty():
             self.taglist.add(self.queue.get())
         LOGGER.info("got tags from Q %s" % self.taglist)
@@ -72,28 +75,27 @@ class Connector(multiprocessing.Process):
 
     def get_albums(self):
         LOGGER.info("Getting Albums for Tags: %s" % self.taglist)
-        if self.getAlbumsEvent.is_set():
-            for tag in self.taglist:
-                resp1 = self.session.get(self.apiurl % (tag, "0"))
-                maxpages = self.parser.parse_maxpages(resp1.content.decode("utf-8").split("\n"))
-                for num in range(1, maxpages+1):
-                    if self.getAlbumsEvent.is_set():
-                        resp2 = self.session.get(self.apiurl % (tag, num))
-                        albums = self.parser.parse_albums(resp2.content.decode("utf-8").split("\n"))
-                        for album in albums:
-                            album.genre = tag #self.update_album_metadata(album)
-                        #LOGGER.debug("%r" % albums)
-                        self.queue.put({tag: albums})
-                        self.albumsReadyEvent.set()
-                    else:
-                        sleep(2)
-                        self.albumsReadyEvent.clear()
-                        return None
-            sleep(2)
-            self.albumsReadyEvent.clear()
-        else:
-            LOGGER.error("Missing Tags, can't obtain Albums")
-                    
+        self.getAlbumsEvent.clear()
+        for tag in self.taglist:
+            resp1 = self.session.get(self.apiurl % (tag, "0"))
+            maxpages = self.parser.parse_maxpages(resp1.content.decode("utf-8").split("\n"))
+            for num in range(1, 2):#maxpages+1):
+                if not self.pauseFetch.is_set():
+                    resp2 = self.session.get(self.apiurl % (tag, num))
+                    albums = self.parser.parse_albums(resp2.content.decode("utf-8").split("\n"))
+                    for album in albums:
+                        album.genre = tag #self.update_album_metadata(album)
+                    self.queue.put({tag: albums})
+                    self.albumsReadyEvent.set()
+                    LOGGER.info(self.albumsReadyEvent.is_set())
+                    LOGGER.debug("%s" % albums)
+                else:
+                    sleep(2)
+                    self.albumsReadyEvent.clear()
+                    return None
+        sleep(2)
+        self.albumsReadyEvent.clear()
+
 
     def update_album_metadata(self, album):#get pictures too
         LOGGER.debug("Updating Tags for %s" % album.name)
@@ -102,20 +104,33 @@ class Connector(multiprocessing.Process):
         return album
 
 
+    def send(self, msg):
+        self.queue.put(msg)
+
+
+    def recieve(self):
+        if not self.queue.empty():
+            msg = self.queue.get()
+            if msg.sender == self.__name__:
+                self.send(msg)
+                return None
+            return msg
+
+
+    def analyze(self, msg):
+        if isinstance(msg, MsgGetTags):
+            #set event for tags
+        elif isinstance(msg, MsgPutFetchTags):
+            #set event for albums
+        else:
+            LOGGER.error("Unknown Message:\n%s" % msg)
+
+
+
     def run(self):
-
-        if self.getTagsEvent.is_set():
-            self.get_tags()
-
-        while not self.stop.is_set():
-            if self.getAlbumsEvent.is_set():
-                self.get_albums()
-            elif self.getFetchTagsFromQ.is_set():
-                self.getTagsFromQ()
-            elif self.getAlbumsEvent.is_set():
-                self.get_albums()
-            else:
-                sleep(0.1)
+        while True: # event
+            self.analyze(self.recieve())
+            sleep(0.5)
 
 
 def __main__():
