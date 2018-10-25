@@ -15,6 +15,7 @@ from album import Album
 from core import Core
 from webconnector import Connector
 from messages import *
+from messagehandler import MessageHandler
 
 
 LOG_FORMAT = '%(asctime)-15s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(levelname)s | %(message)s'
@@ -38,12 +39,15 @@ sys.excepthook = uncaught_exceptions
 ##################################
 
 
-class MainWindow(QMainWindow):
+class MainWindow(QMainWindow, MessageHandler):
 
     def __init__(self):
-        super().__init__()
+        QMainWindow.__init__(self)
+        MessageHandler.__init__(self)
 
-        self.queue = multiprocessing.Queue(5000)
+        #super().__init__()
+
+        #self.queue = multiprocessing.Queue(5000)
         #self.core = Core(self.queue, self)
         #self.core.start()
         #self.core.setUpdateAlbumsCallBack(self.updateAlbums)
@@ -291,23 +295,12 @@ class MainWindow(QMainWindow):
         LOGGER.info(self.connector.albumsReadyEvent.is_set())
 
 
-    def send(self, msg):
-        self.queue.put(msg)
-
-
-    def recieve(self):
-        if not self.queue.empty():
-            msg = self.queue.get()
-            if msg.sender == self.__name__:
-                self.send(msg)
-                return None
-            return msg
-
-
-    def analyze(self, msg):
+    def analyze(self, msg): # WIP
         if isinstance(msg, MsgPutTags):
+            pass
             #set event for tags
         elif isinstance(msg, MsgPutAlbums):
+            pass
             #set event for albums
         else:
             LOGGER.error("Unknown Message:\n%s" % msg)        

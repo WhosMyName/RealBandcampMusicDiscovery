@@ -7,6 +7,7 @@ import sys
 
 from htmlparser import HTMLParser
 from messages import *
+from messagehandler import MessageHandler
 
 LOG_FORMAT = '%(asctime)-15s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(levelname)s | %(message)s'
 LOGGER = logging.getLogger('rbmd.webconnector')
@@ -24,11 +25,12 @@ def uncaught_exceptions(type, value, tb):
 sys.excepthook = uncaught_exceptions
 
 #class Connector(threading.Thread):
-class Connector(multiprocessing.Process):
+class Connector(multiprocessing.Process, MessageHandler):
 
     def __init__(self, queue):
         #threading.Thread.__init__(self)
         multiprocessing.Process.__init__(self)
+        MessageHandler.__init__(self)
         self.queue = queue
 
         self.getTagsEvent = multiprocessing.Event()
@@ -104,27 +106,15 @@ class Connector(multiprocessing.Process):
         return album
 
 
-    def send(self, msg):
-        self.queue.put(msg)
-
-
-    def recieve(self):
-        if not self.queue.empty():
-            msg = self.queue.get()
-            if msg.sender == self.__name__:
-                self.send(msg)
-                return None
-            return msg
-
-
-    def analyze(self, msg):
+    def analyze(self, msg): # WIP
         if isinstance(msg, MsgGetTags):
+            pass
             #set event for tags
         elif isinstance(msg, MsgPutFetchTags):
+            pass
             #set event for albums
         else:
             LOGGER.error("Unknown Message:\n%s" % msg)
-
 
 
     def run(self):
