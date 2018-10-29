@@ -54,7 +54,7 @@ class MainWindow(QMainWindow, MessageHandler):
         #self.core.setFetchedAlbumsCallback(self.updateFetchedAlbums)
         #self.core.fetchTagsEvent.set()
         self.connector = Connector(self.queue)
-        self.connector.start()
+        #self.connector.start()
 
         self.timer = QTimer(self)
         self.timer.start(750)
@@ -84,11 +84,11 @@ class MainWindow(QMainWindow, MessageHandler):
         self.closeEvent = self.close
         self.showEvent = self.show()
         self.statusBar()
-        self.setStatusTip("Initializing...")
         self.firstloaded = True
         self.initMenu()
         self.initToolbar()
         self.show()
+        self.start()
 
 
     def __del__(self):
@@ -101,24 +101,26 @@ class MainWindow(QMainWindow, MessageHandler):
         self.__del__()
 
 
-    def waitForInit(self):
-        msgbox = QMessageBox(self)
-        msgbox.setText("Initializing...")
-        msgbox.show()
-        while not self.connector.tagsReadyEvent.is_set():
-            sleep(0.1)
-        self.connector.tagsReadyEvent.clear()
-        if not self.queue.empty():
-            while not self.queue.empty():
-                self.genrelist.add(self.queue.get())
-        sleep(2)
-        msgbox.done(0)
-        msgbox.destroy(True)
+    def initInit(self):
+        self.setStatusTip("Initializing...")
+        self.msgbox = QMessageBox(self)
+        self.msgbox.setText("Initializing...")
+        self.msgbox.show()
+
+
+    def finalizeInit(self):
+        self.msgbox.done(0)
+        self.msgbox.destroy(True)
         self.compare.setEnabled(True)
         self.reload.setEnabled(True)
         self.more.setEnabled(True)
         self.setStatusTip("Init done!")
         LOGGER.info("Init done")
+
+
+    def storeTagsFromMsg(self, msg):
+        if msg.data is not None:
+            self.genrelist = set(msg.data)
 
 
     def initToolbar(self):
@@ -278,32 +280,41 @@ class MainWindow(QMainWindow, MessageHandler):
     def syncCoreWithConnector(self):
         LOGGER.info("Syncing...")
         if self.firstloaded:
+            self.send(MsgGetTags(sender=self.__class__.__name__))
             self.firstloaded = False
             self.timer.stop()
             self.timer.start(5000)
-            self.waitForInit()
+            self.initInit()
         ###############
-        self.analyze(self.recieve())
+        #self.analyze(self.recieve())
         #change all this to fit new arch
-        if self.fetchTagsInQ.is_set():
-            LOGGER.info("should've put tags in Q")
-            self.connector.getFetchTagsFromQ.set()
-            self.fetchTagsInQ.clear()
-        elif self.connector.albumsReadyEvent.is_set():
-            self.connector.albumsReadyEvent.clear()
-            self.getAlbumsFromQ()
-        LOGGER.info(self.connector.albumsReadyEvent.is_set())
+        #if self.fetchTagsInQ.is_set():
+        #    LOGGER.info("should've put tags in Q")
+        #    self.connector.getFetchTagsFromQ.set()
+        #    self.fetchTagsInQ.clear()
+        #elif self.connector.albumsReadyEvent.is_set():
+        #    self.connector.albumsReadyEvent.clear()
+        #    self.getAlbumsFromQ()
+        #LOGGER.info(self.connector.albumsReadyEvent.is_set())
+
+
+    def run(self):
+        while not self.stop.is_set():
+            self.analyze(self.recieve())
+            sleep(self.interval)
 
 
     def analyze(self, msg): # WIP
-        if isinstance(msg, MsgPutTags):
-            pass
-            #set event for tags
-        elif isinstance(msg, MsgPutAlbums):
-            pass
-            #set event for albums
-        else:
-            LOGGER.error("Unknown Message:\n%s" % msg)        
+        if msg is not None:
+            LOGGER.info("Received Msg: %s in Q: %s" % (msg, self.queue))
+            if isinstance(msg, MsgPutTags):
+                self.storeTagsFromMsg(msg)
+                self.finalizeInit()
+            elif isinstance(msg, MsgPutAlbums):
+                pass
+                #set event for albums
+            else:
+                LOGGER.error("Unknown Message:\n%s" % msg)        
 
 
 def __main__():

@@ -33,7 +33,7 @@ class Connector(multiprocessing.Process, MessageHandler):
         MessageHandler.__init__(self)
         self.queue = queue
 
-        self.getTagsEvent = multiprocessing.Event()
+        self.getGenresEvent = multiprocessing.Event()
         self.getAlbumsEvent = multiprocessing.Event()
         self.tagsReadyEvent = multiprocessing.Event()
         self.albumsReadyEvent = multiprocessing.Event()
@@ -41,7 +41,7 @@ class Connector(multiprocessing.Process, MessageHandler):
         self.pauseFetch = multiprocessing.Event()
         self.pauseFetch.clear()
         self.tagsReadyEvent.clear()
-        self.getTagsEvent.set()
+        #self.getGenresEvent.set()
 
         self.taglist = set()
         self.stop = multiprocessing.Event()
@@ -49,6 +49,7 @@ class Connector(multiprocessing.Process, MessageHandler):
         self.parser = HTMLParser()
         self.apiurl = "https://bandcamp.com/tag/%s?page=%s" # tag, pagenum
         LOGGER.debug("Initialized %s" % self)
+        self.start()
 
 
     def __del__(self):
@@ -56,16 +57,14 @@ class Connector(multiprocessing.Process, MessageHandler):
         self.stop.set()
 
 
-    def get_tags(self):
+    def getGenres(self):
+        self.getGenresEvent.clear()
         LOGGER.info("Obtaining Tags")
         resp = self.session.get("https://bandcamp.com/tags")
         #LOGGER.debug(resp.content.decode("utf-8"))
         tags = self.parser.parse_tags(resp.content.decode("utf-8").split("\n"))
-        for tag in tags:
-            self.queue.put(tag)
-            #LOGGER.debug("Put %s in Q" % tag)
-        self.tagsReadyEvent.set()
-
+        self.send(MsgPutTags(self.__class__.__name__, data=tags))
+        LOGGER.info("Msg sent")
 
     def getTagsFromQ(self):
         self.getFetchTagsFromQ.clear()
@@ -107,26 +106,30 @@ class Connector(multiprocessing.Process, MessageHandler):
 
 
     def analyze(self, msg): # WIP
-        if isinstance(msg, MsgGetTags):
-            pass
-            #set event for tags
-        elif isinstance(msg, MsgPutFetchTags):
-            pass
-            #set event for albums
-        else:
-            LOGGER.error("Unknown Message:\n%s" % msg)
+        if msg is not None:
+            LOGGER.info("Received Msg: %s in Q: %s" % (msg, self.queue))
+            if isinstance(msg, MsgGetTags):
+                self.getGenresEvent.set()
+            elif isinstance(msg, MsgPutFetchTags):
+                pass
+                #set event for albums
+            else:
+                LOGGER.error("Unknown Message:\n%s" % msg)
 
 
     def run(self):
-        while True: # event
+        while not self.stop.is_set(): # event
             self.analyze(self.recieve())
+            if self.getGenresEvent.is_set():
+                self.getGenres()
+
             sleep(0.5)
 
 
 def __main__():
     conn = Connector()
     conn.start()
-    #conn.get_tags()
+    #conn.getGenres()
     conn.get_albums(print, "rock")
     conn.__del__()
 

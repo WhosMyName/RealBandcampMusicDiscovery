@@ -15,12 +15,21 @@ class MessageHandler(Thread):
         self.interval = interval
         self.stop = Event()
         self.stop.clear()
-        self.start()
+
 
     def __init_subclass__(cls):
-        if not isinstance(cls.__dict__["analyze"], types.FunctionType):
+        if "analyze" in cls.__dict__.keys():
+            if not isinstance(cls.__dict__["analyze"], types.FunctionType):
+                raise AttributeError
+        else:
             raise AttributeError
         super().__init_subclass__()
+
+
+    def __del__(self):
+        while not self.queue.empty():
+            _ = self.queue.get()
+        self.queue.close()
 
 
     def send(self, msg):
@@ -31,14 +40,7 @@ class MessageHandler(Thread):
         if not self.queue.empty():
             msg = self.queue.get(block=True)
             if isinstance(msg, Msg):
-                if msg.sender == self.__name__:
+                if msg.sender == self.__class__.__name__:
                     self.send(msg)
                     return None
-                self.queue.task_done()
                 return msg
-
-
-    def run(self):
-        while not self.stop.is_set():
-            self.analyze(self.recieve())
-            sleep(self.interval)
