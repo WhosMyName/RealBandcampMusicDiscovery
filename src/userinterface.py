@@ -4,7 +4,6 @@ import sys
 from time import sleep
 import logging
 import multiprocessing
-import traceback
 
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtWidgets import *
@@ -29,36 +28,31 @@ flhdlr.setLevel(logging.DEBUG)
 flhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
 LOGGER.addHandler(strmhdlr)
 LOGGER.addHandler(flhdlr)
-def uncaught_exceptions(type, value, tb):
-    LOGGER.critical("Uncaught Exception of type %s was caught: %s\nTraceback:\n%s" % (type, value, traceback.print_tb(tb)))
+def uncaught_exceptions(exc_type, exc_val, exc_trace):
+    import traceback
+    if exc_type is None and exc_val is None and exc_trace is None:
+        exc_type, exc_val, exc_trace = sys.exc_info()
+    LOGGER.exception("Uncaught Exception of type %s was caught: %s\nTraceback:\n%s" % (exc_type, exc_val, traceback.print_tb(exc_trace)))
+    try:
+        del exc_type, exc_val, exc_trace
+    except:
+        LOGGER.exception(Exception("Exception args could not be deleted"))
 sys.excepthook = uncaught_exceptions
-
-
-##################################
-#get exceptions into logs
-##################################
 
 
 class MainWindow(QMainWindow, MessageHandler):
 
     def __init__(self):
-        QMainWindow.__init__(self)
         MessageHandler.__init__(self)
+        LOGGER.info("Self: %s" % self)
+        QMainWindow.__init__(self)
+        LOGGER.info("Self: %s" % self)
 
-        #super().__init__()
-
-        #self.queue = multiprocessing.Queue(5000)
-        #self.core = Core(self.queue, self)
-        #self.core.start()
-        #self.core.setUpdateAlbumsCallBack(self.updateAlbums)
-        #self.core.setFetchedAlbumsCallback(self.updateFetchedAlbums)
-        #self.core.fetchTagsEvent.set()
         self.connector = Connector(self.queue)
-        #self.connector.start()
 
         self.timer = QTimer(self)
-        self.timer.start(750)
-        self.timer.timeout.connect(self.syncCoreWithConnector)
+        self.timer.timeout.connect(self.updateLayout)
+        self.timer.start(5000)
 
         self.layout = QGridLayout()
         self.widget = QWidget()
@@ -75,11 +69,7 @@ class MainWindow(QMainWindow, MessageHandler):
         self.btnlist = []
         self.selectorlist = []
         self.fetchedAlbums = {}
-
-        self.updateEvent = multiprocessing.Event()
-        self.updateEvent.clear()
-
-        self.fetchTagsInQ = multiprocessing.Event()
+        LOGGER.info("Self: %s" % self)
 
         self.closeEvent = self.close
         self.showEvent = self.show()
@@ -89,23 +79,26 @@ class MainWindow(QMainWindow, MessageHandler):
         self.initToolbar()
         self.show()
         self.start()
+        self.send(MsgGetTags(sender=self.__class__.__name__))
+        self.setStatusTip("Initializing...")
+        self.msgbox = QMessageBox(self)
+        self.msgbox.setText("Initializing...")
+        self.msgbox.show()
+        LOGGER.info("Self: %s" % self)
 
 
     def __del__(self):
-        #self.core.__del__()
+        MessageHandler.__del__(self)
         self.connector.__del__()
         self.queue.close()
 
 
     def close(self, event):
+        self.stop.set()
         self.__del__()
 
 
-    def initInit(self):
-        self.setStatusTip("Initializing...")
-        self.msgbox = QMessageBox(self)
-        self.msgbox.setText("Initializing...")
-        self.msgbox.show()
+############################################## QWindow Props ##################################################
 
 
     def finalizeInit(self):
@@ -116,11 +109,6 @@ class MainWindow(QMainWindow, MessageHandler):
         self.more.setEnabled(True)
         self.setStatusTip("Init done!")
         LOGGER.info("Init done")
-
-
-    def storeTagsFromMsg(self, msg):
-        if msg.data is not None:
-            self.genrelist = set(msg.data)
 
 
     def initToolbar(self):
@@ -168,12 +156,16 @@ class MainWindow(QMainWindow, MessageHandler):
     def showHelp(self):
         print("####################################Help!############################################")
 
+# WIP - add help menu that displays infos about the "program" and an updater button
+
+########################################## End QWindow Props ##################################################
+############################################## Logikz #########################################################
 
     def refresh(self):
         LOGGER.info("refreshing selection")
         comp = set()
         for selector in self.selectorlist:
-            if selector == '':
+            if selector.currentData(0) == '':
                 self.selectorlist.remove(selector)
                 self.toolbar.removeWidget(selector)
             elif selector not in self.fetchedAlbums.keys():
@@ -181,43 +173,8 @@ class MainWindow(QMainWindow, MessageHandler):
             else:
                 self.albumlist.append(self.fetchedAlbums[selector])
         LOGGER.debug(comp)
-        if self.queue.empty():
-            for tag in comp:
-                self.queue.put(tag) # set event for connector
-        self.fetchTagsInQ.set()
+        self.send(MsgPutFetchTags(sender=self.__class__.__name__, data=comp))
         self.setStatusTip("Fetching Albums...")
-            
-
-    def getAlbumsFromQ(self):
-        LOGGER.debug("Getting Albums from Q")
-        if not self.queue.empty():
-            while not self.queue.empty():
-                albums = self.queue.get()
-                LOGGER.debug(albums)
-                for value in albums.values():
-                    self.updateAlbums(value)
-            self.updateFetchedAlbums(albums)
-            LOGGER.info("Got Albums from Q")
-        else:
-            LOGGER.warning("Tried to get Albums from Q but it's empty")
-
-
-    def updateAlbums(self, albums):
-        LOGGER.info("Updating Albums")
-        self.albumlist.update(albums)
-        for album in self.albumlist:
-            self.add_album(album)
-        self.updateLayout()
-
-
-    def updateFetchedAlbums(self, albumsdict):
-        for key, value in albumsdict.items():
-            if key in self.fetchedAlbums.keys():
-                albumsfetched = self.fetchedAlbums[key]
-                albumsfetched.update(value)
-                self.fetchedAlbums[key] = albumsfetched
-            else:
-                self.fetchedAlbums[key] = value
 
 
     def comparison(self):
@@ -240,6 +197,22 @@ class MainWindow(QMainWindow, MessageHandler):
         self.setStatusTip("Comparison done!")
 
 
+    def processAlbums(self, msg):
+        albumsdict = msg.data
+        #LOGGER.debug(albumsdict)
+        for key, value in albumsdict.items():
+            if key in self.fetchedAlbums.keys():
+                albumsfetched = self.fetchedAlbums[key]
+                albumsfetched.update(value)
+                self.fetchedAlbums[key] = albumsfetched
+            else:
+                self.fetchedAlbums[key] = value
+            self.albumlist.update(value)
+        for album in self.albumlist:
+            self.add_album(album)
+        self.updateLayout()
+            
+
     def add_genre_selector(self):
         dd = QComboBox(parent=self)
         compfilter = QSortFilterProxyModel(dd)
@@ -257,7 +230,7 @@ class MainWindow(QMainWindow, MessageHandler):
 
     def add_album(self, album):
         if isinstance(album, Album):
-            btn = QPushButton("%s - %s" % (album.band, album.name))
+            btn = QPushButton("%s - %s" % (album.band, album.name), None)
             icn = QIcon() # see ref doc
             btn.setIcon(icn)
             btn.setIconSize(QSize(20, 20))
@@ -265,37 +238,19 @@ class MainWindow(QMainWindow, MessageHandler):
             self.btnlist.append(btn)
         else:
             LOGGER.error("Wanted to add %s, but it's not an Album" % album)
-            #self.updateLayout()
 
 
     def updateLayout(self):
+        #LOGGER.info(self.albumlist)
+        #for album in self.albumlist:
+        #    self.add_album(album)
         LOGGER.info("Refreshing Layout")
         for btn in self.btnlist:
             self.layout.removeWidget(btn)
         positions = [ (x,y) for x in range(int(len(self.btnlist)/5)) for y in range(5) ]
         for position, btn in zip(positions, self.btnlist):
             self.layout.addWidget(btn, *position)
-
-
-    def syncCoreWithConnector(self):
-        LOGGER.info("Syncing...")
-        if self.firstloaded:
-            self.send(MsgGetTags(sender=self.__class__.__name__))
-            self.firstloaded = False
-            self.timer.stop()
-            self.timer.start(5000)
-            self.initInit()
-        ###############
-        #self.analyze(self.recieve())
-        #change all this to fit new arch
-        #if self.fetchTagsInQ.is_set():
-        #    LOGGER.info("should've put tags in Q")
-        #    self.connector.getFetchTagsFromQ.set()
-        #    self.fetchTagsInQ.clear()
-        #elif self.connector.albumsReadyEvent.is_set():
-        #    self.connector.albumsReadyEvent.clear()
-        #    self.getAlbumsFromQ()
-        #LOGGER.info(self.connector.albumsReadyEvent.is_set())
+            LOGGER.info("Re-added btn %s" % btn)
 
 
     def run(self):
@@ -311,11 +266,17 @@ class MainWindow(QMainWindow, MessageHandler):
                 self.storeTagsFromMsg(msg)
                 self.finalizeInit()
             elif isinstance(msg, MsgPutAlbums):
-                pass
-                #set event for albums
+                self.processAlbums(msg)
             else:
                 LOGGER.error("Unknown Message:\n%s" % msg)        
 
+
+    def storeTagsFromMsg(self, msg):
+        if msg.data is not None:
+            self.genrelist = set(msg.data)
+
+
+############################################## End Logikz #####################################################
 
 def __main__():
     app = QApplication(sys.argv)

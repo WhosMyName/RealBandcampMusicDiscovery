@@ -20,11 +20,18 @@ flhdlr.setLevel(logging.DEBUG)
 flhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
 LOGGER.addHandler(strmhdlr)
 LOGGER.addHandler(flhdlr)
-def uncaught_exceptions(type, value, tb):
-    LOGGER.exception("Uncaught Exception of type %s was caught: %s\nTraceback:\n%s" % (type, value, tb))
+def uncaught_exceptions(exc_type, exc_val, exc_trace):
+    import traceback
+    if exc_type is None and exc_val is None and exc_trace is None:
+        exc_type, exc_val, exc_trace = sys.exc_info()
+    LOGGER.exception("Uncaught Exception of type %s was caught: %s\nTraceback:\n%s" % (exc_type, exc_val, traceback.print_tb(exc_trace)))
+    try:
+        del exc_type, exc_val, exc_trace
+    except:
+        LOGGER.exception(Exception("Exception args could not be deleted"))
 sys.excepthook = uncaught_exceptions
 
-#class Connector(threading.Thread):
+
 class Connector(multiprocessing.Process, MessageHandler):
 
     def __init__(self, queue):
@@ -48,11 +55,12 @@ class Connector(multiprocessing.Process, MessageHandler):
         self.session = requests.Session()
         self.parser = HTMLParser()
         self.apiurl = "https://bandcamp.com/tag/%s?page=%s" # tag, pagenum
-        LOGGER.debug("Initialized %s" % self)
         self.start()
+        LOGGER.debug("Initialized %s" % self)
 
 
     def __del__(self):
+        MessageHandler.__del__(self)
         self.parser.__del__()
         self.stop.set()
 
@@ -66,15 +74,16 @@ class Connector(multiprocessing.Process, MessageHandler):
         self.send(MsgPutTags(self.__class__.__name__, data=tags))
         LOGGER.info("Msg sent")
 
-    def getTagsFromQ(self):
-        self.getFetchTagsFromQ.clear()
-        while not self.queue.empty():
-            self.taglist.add(self.queue.get())
-        LOGGER.info("got tags from Q %s" % self.taglist)
+
+    def getFetchTags(self, msg):
+        fetchTags = msg.data
+        for tag in fetchTags:
+            self.taglist.add(tag)
+        LOGGER.info("got tags from Msg %s" % self.taglist)
         self.getAlbumsEvent.set()
 
 
-    def get_albums(self):
+    def getAlbums(self):
         LOGGER.info("Getting Albums for Tags: %s" % self.taglist)
         self.getAlbumsEvent.clear()
         for tag in self.taglist:
@@ -86,22 +95,18 @@ class Connector(multiprocessing.Process, MessageHandler):
                     albums = self.parser.parse_albums(resp2.content.decode("utf-8").split("\n"))
                     for album in albums:
                         album.genre = tag #self.update_album_metadata(album)
-                    self.queue.put({tag: albums})
-                    self.albumsReadyEvent.set()
-                    LOGGER.info(self.albumsReadyEvent.is_set())
+                    albumdata = {tag: albums}
+                    self.send(MsgPutAlbums(self.__class__.__name__, data=albumdata))
                     LOGGER.debug("%s" % albums)
                 else:
                     sleep(2)
-                    self.albumsReadyEvent.clear()
                     return None
-        sleep(2)
-        self.albumsReadyEvent.clear()
 
 
     def update_album_metadata(self, album):#get pictures too
         LOGGER.debug("Updating Tags for %s" % album.name)
         resp = self.session.get(album.url)
-        album.genre = self.parser.parse_album_genres(resp.content.decode("utf-8").split("\n"))
+        album.genre = self.parser.parse_album_metadata(resp.content.decode("utf-8").split("\n"))
         return album
 
 
@@ -111,8 +116,7 @@ class Connector(multiprocessing.Process, MessageHandler):
             if isinstance(msg, MsgGetTags):
                 self.getGenresEvent.set()
             elif isinstance(msg, MsgPutFetchTags):
-                pass
-                #set event for albums
+                self.getFetchTags(msg)
             else:
                 LOGGER.error("Unknown Message:\n%s" % msg)
 
@@ -122,6 +126,8 @@ class Connector(multiprocessing.Process, MessageHandler):
             self.analyze(self.recieve())
             if self.getGenresEvent.is_set():
                 self.getGenres()
+            elif self.getAlbumsEvent.is_set():
+                self.getAlbums()
 
             sleep(0.5)
 
@@ -130,7 +136,7 @@ def __main__():
     conn = Connector()
     conn.start()
     #conn.getGenres()
-    conn.get_albums(print, "rock")
+    conn.getAlbums(print, "rock")
     conn.__del__()
 
 if __name__ == "__main__":

@@ -20,17 +20,15 @@ class MessageHandler(Thread):
     def __init_subclass__(cls):
         if "analyze" in cls.__dict__.keys():
             if not isinstance(cls.__dict__["analyze"], types.FunctionType):
-                raise AttributeError
+                raise AttributeError("Function \"analyze\" must be a function")
         else:
-            raise AttributeError
+            raise AttributeError("Function \"analyze\" must be defined")
         super().__init_subclass__()
 
 
     def __del__(self):
-        while not self.queue.empty():
-            _ = self.queue.get()
+        self.queue.cancel_join_thread()
         self.queue.close()
-
 
     def send(self, msg):
         self.queue.put(msg, block=True)
