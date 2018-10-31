@@ -1,9 +1,9 @@
-import requests
-import threading
 import multiprocessing
 from time import sleep
 import logging
 import sys
+
+import requests
 
 from htmlparser import HTMLParser
 from messages import *
@@ -35,10 +35,8 @@ sys.excepthook = uncaught_exceptions
 class Connector(multiprocessing.Process, MessageHandler):
 
     def __init__(self, queue):
-        #threading.Thread.__init__(self)
         multiprocessing.Process.__init__(self)
-        MessageHandler.__init__(self)
-        self.queue = queue
+        MessageHandler.__init__(self, queue)
 
         self.getGenresEvent = multiprocessing.Event()
         self.getAlbumsEvent = multiprocessing.Event()
@@ -48,7 +46,6 @@ class Connector(multiprocessing.Process, MessageHandler):
         self.pauseFetch = multiprocessing.Event()
         self.pauseFetch.clear()
         self.tagsReadyEvent.clear()
-        #self.getGenresEvent.set()
 
         self.taglist = set()
         self.stop = multiprocessing.Event()
@@ -71,14 +68,12 @@ class Connector(multiprocessing.Process, MessageHandler):
         resp = self.session.get("https://bandcamp.com/tags")
         #LOGGER.debug(resp.content.decode("utf-8"))
         tags = self.parser.parse_tags(resp.content.decode("utf-8").split("\n"))
-        self.send(MsgPutTags(self.__class__.__name__, data=tags))
+        self.send(MsgPutTags(data=tags))
         LOGGER.info("Msg sent")
 
 
     def getFetchTags(self, msg):
-        fetchTags = msg.data
-        for tag in fetchTags:
-            self.taglist.add(tag)
+        self.taglist = set(msg.data)
         LOGGER.info("got tags from Msg %s" % self.taglist)
         self.getAlbumsEvent.set()
 
@@ -96,7 +91,7 @@ class Connector(multiprocessing.Process, MessageHandler):
                     for album in albums:
                         album.genre = tag #self.update_album_metadata(album)
                     albumdata = {tag: albums}
-                    self.send(MsgPutAlbums(self.__class__.__name__, data=albumdata))
+                    self.send(MsgPutAlbums(data=albumdata))
                     LOGGER.debug("%s" % albums)
                 else:
                     sleep(2)
@@ -141,15 +136,3 @@ def __main__():
 
 if __name__ == "__main__":
     __main__()  
-
-#############################################################
-        #for timeframe in timeframes:
-        #    for recomm in recommlvl:
-        #        LOGGER.info("Getting MaxPages for %s" % self.apiurl % (tag, recomm, "0", timeframe))
-        #        LOGGER.debug("MaxPages for %s is %s" % (self.apiurl, maxpages) % (tag, recomm, "0", timeframe))
-        #        for pagenum in range(0, 1): #maxpages):
-        #            LOGGER.debug("Getting data from %s" % self.apiurl % (tag, recomm, pagenum, timeframe))
-        #            resp2 = self.session.get(self.apiurl % (tag, recomm, pagenum, timeframe))
-        #            albums = self.parser.parse_albums(resp2.json())
-        #            for album in albums:
-        #                album = self.update_album_genre(album)

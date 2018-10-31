@@ -51,7 +51,7 @@ class MainWindow(QMainWindow, MessageHandler):
         self.connector = Connector(self.queue)
 
         self.timer = QTimer(self)
-        self.timer.timeout.connect(self.updateLayout)
+        self.timer.timeout.connect(self.msgcapture)
         self.timer.start(5000)
 
         self.layout = QGridLayout()
@@ -59,9 +59,9 @@ class MainWindow(QMainWindow, MessageHandler):
         self.widget.setMinimumSize(800, 600)
         self.widget.setLayout(self.layout)
         self.setCentralWidget(self.widget)
-        self.scrollArea = QScrollArea()
-        self.scrollArea.setWidgetResizable(True)
-        self.scrollArea.setWidget(self.widget)
+        #self.scrollArea = QScrollArea()
+        #self.scrollArea.setWidgetResizable(True)
+        #self.scrollArea.setWidget(self.widget)
         self.setWindowTitle("RealBandcampMusicDisc0very")
         self.setGeometry(QRect(0, 0, 1280, 720))
         self.albumlist = set()
@@ -78,8 +78,7 @@ class MainWindow(QMainWindow, MessageHandler):
         self.initMenu()
         self.initToolbar()
         self.show()
-        self.start()
-        self.send(MsgGetTags(sender=self.__class__.__name__))
+        self.send(MsgGetTags())
         self.setStatusTip("Initializing...")
         self.msgbox = QMessageBox(self)
         self.msgbox.setText("Initializing...")
@@ -94,7 +93,6 @@ class MainWindow(QMainWindow, MessageHandler):
 
 
     def close(self, event):
-        self.stop.set()
         self.__del__()
 
 
@@ -165,15 +163,12 @@ class MainWindow(QMainWindow, MessageHandler):
         LOGGER.info("refreshing selection")
         comp = set()
         for selector in self.selectorlist:
-            if selector.currentData(0) == '':
-                self.selectorlist.remove(selector)
-                self.toolbar.removeWidget(selector)
-            elif selector not in self.fetchedAlbums.keys():
-                comp.add(selector.currentData(0))
+            if selector.currentData(0) in self.fetchedAlbums.keys():
+                self.albumlist.update(self.fetchedAlbums[selector.currentData(0)])
             else:
-                self.albumlist.append(self.fetchedAlbums[selector])
+                comp.add(selector.currentData(0))
         LOGGER.debug(comp)
-        self.send(MsgPutFetchTags(sender=self.__class__.__name__, data=comp))
+        self.send(MsgPutFetchTags(data=comp))
         self.setStatusTip("Fetching Albums...")
 
 
@@ -199,7 +194,6 @@ class MainWindow(QMainWindow, MessageHandler):
 
     def processAlbums(self, msg):
         albumsdict = msg.data
-        #LOGGER.debug(albumsdict)
         for key, value in albumsdict.items():
             if key in self.fetchedAlbums.keys():
                 albumsfetched = self.fetchedAlbums[key]
@@ -241,22 +235,17 @@ class MainWindow(QMainWindow, MessageHandler):
 
 
     def updateLayout(self):
-        #LOGGER.info(self.albumlist)
-        #for album in self.albumlist:
-        #    self.add_album(album)
         LOGGER.info("Refreshing Layout")
         for btn in self.btnlist:
             self.layout.removeWidget(btn)
         positions = [ (x,y) for x in range(int(len(self.btnlist)/5)) for y in range(5) ]
         for position, btn in zip(positions, self.btnlist):
             self.layout.addWidget(btn, *position)
-            LOGGER.info("Re-added btn %s" % btn)
+            #LOGGER.info("Re-added btn %s" % btn)
 
 
-    def run(self):
-        while not self.stop.is_set():
-            self.analyze(self.recieve())
-            sleep(self.interval)
+    def msgcapture(self):
+        self.analyze(self.recieve())
 
 
     def analyze(self, msg): # WIP

@@ -4,6 +4,7 @@ import sys
 import threading
 from time import sleep
 import logging
+
 from album import Album
 
 LOG_FORMAT = '%(asctime)-15s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(levelname)s | %(message)s'
