@@ -98,7 +98,7 @@ class HTMLParser():
         for line in data:
             if "class=\"tag\" href=" in line:
                 genre = line.split("/tag/")[1].split("\" ")[0]
-                LOGGER.debug("Found Genre: %s" % genre) # LOGGER.debug
+                LOGGER.debug("Found Genre: %s" % genre)
                 genrelist.add(genre)
         return genrelist
 

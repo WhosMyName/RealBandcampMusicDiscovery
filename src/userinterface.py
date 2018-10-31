@@ -1,6 +1,7 @@
 """ class to display userinterface """
 
 import sys
+from math import ceil
 from time import sleep
 import logging
 import multiprocessing
@@ -11,7 +12,6 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 
 from album import Album
-from core import Core
 from webconnector import Connector
 from messages import *
 from messagehandler import MessageHandler
@@ -55,13 +55,20 @@ class MainWindow(QMainWindow, MessageHandler):
         self.timer.start(5000)
 
         self.layout = QGridLayout()
+        self.layout.setSizeConstraint(QLayout.SetMinimumSize)
         self.widget = QWidget()
         self.widget.setMinimumSize(800, 600)
         self.widget.setLayout(self.layout)
-        self.setCentralWidget(self.widget)
-        #self.scrollArea = QScrollArea()
-        #self.scrollArea.setWidgetResizable(True)
-        #self.scrollArea.setWidget(self.widget)
+
+        self.scrollArea = QScrollArea()
+        self.scrollArea.setWidget(self.widget)
+        self.scrollArea.setWidgetResizable(True)
+        #self.scrollArea.widgetResizable()
+        self.scrollArea.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        #self.scrollArea.setGeometry(QRect(0, 0, 1280, 690))
+        self.setCentralWidget(self.scrollArea)
+
+
         self.setWindowTitle("RealBandcampMusicDisc0very")
         self.setGeometry(QRect(0, 0, 1280, 720))
         self.albumlist = set()
@@ -102,6 +109,7 @@ class MainWindow(QMainWindow, MessageHandler):
     def finalizeInit(self):
         self.msgbox.done(0)
         self.msgbox.destroy(True)
+        self.clear.setEnabled(True)
         self.compare.setEnabled(True)
         self.reload.setEnabled(True)
         self.more.setEnabled(True)
@@ -111,6 +119,11 @@ class MainWindow(QMainWindow, MessageHandler):
 
     def initToolbar(self):
         self.toolbar = self.addToolBar("Generic Foobar")
+
+        self.clear = self.toolbar.addAction("clear")
+        self.clear.triggered.connect(self.clearLayout)
+        self.clear.setStatusTip("Clear All")
+        self.clear.setEnabled(False)
 
         self.compare = self.toolbar.addAction("compare noods")
         self.compare.triggered.connect(self.comparison)
@@ -170,6 +183,7 @@ class MainWindow(QMainWindow, MessageHandler):
         LOGGER.debug(comp)
         self.send(MsgPutFetchTags(data=comp))
         self.setStatusTip("Fetching Albums...")
+        self.updateLayout()
 
 
     def comparison(self):
@@ -179,14 +193,10 @@ class MainWindow(QMainWindow, MessageHandler):
             comp.add(selector.currentData(0))
         LOGGER.debug(comp)
         compareset = set()
-        dt = time()
         for album in self.albumlist:
-            LOGGER.debug("%s - %s [%r]" % (album.name, album.genre, taglist))
             if comp.issubset(album.genre):
                 compareset.add(album)
                 LOGGER.debug("Added %s after comparison" % album.name)
-        dt1 = time()
-        LOGGER.debug("Time spent comparing: %s" % (dt1-dt))
         self.albumlist = compareset
         self.updateLayout()
         self.setStatusTip("Comparison done!")
@@ -202,8 +212,6 @@ class MainWindow(QMainWindow, MessageHandler):
             else:
                 self.fetchedAlbums[key] = value
             self.albumlist.update(value)
-        for album in self.albumlist:
-            self.add_album(album)
         self.updateLayout()
             
 
@@ -224,7 +232,7 @@ class MainWindow(QMainWindow, MessageHandler):
 
     def add_album(self, album):
         if isinstance(album, Album):
-            btn = QPushButton("%s - %s" % (album.band, album.name), None)
+            btn = QPushButton("Artist: %s\nAlbum: %s" % (album.band, album.name), None)
             icn = QIcon() # see ref doc
             btn.setIcon(icn)
             btn.setIconSize(QSize(20, 20))
@@ -234,14 +242,33 @@ class MainWindow(QMainWindow, MessageHandler):
             LOGGER.error("Wanted to add %s, but it's not an Album" % album)
 
 
+    def clearLayout(self):
+        self.albumlist = set()
+        self.updateLayout()
+
+
     def updateLayout(self):
         LOGGER.info("Refreshing Layout")
-        for btn in self.btnlist:
-            self.layout.removeWidget(btn)
-        positions = [ (x,y) for x in range(int(len(self.btnlist)/5)) for y in range(5) ]
+
+        for widget in self.layout.children():
+            self.layout.removeWidget(widget)
+
+        while self.layout.count() != 0:
+            useless = self.layout.takeAt(0)
+            del useless
+        
+        for child in self.widget.children():
+            if not isinstance(child, QGridLayout):
+                child.deleteLater()
+            
+        self.btnlist = []
+
+        for album in self.albumlist:
+            self.add_album(album)
+
+        positions = [ (x,y) for x in range(int(ceil(len(self.btnlist)/5))) for y in range(1, 6) ]
         for position, btn in zip(positions, self.btnlist):
             self.layout.addWidget(btn, *position)
-            #LOGGER.info("Re-added btn %s" % btn)
 
 
     def msgcapture(self):

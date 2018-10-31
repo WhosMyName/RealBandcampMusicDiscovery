@@ -78,7 +78,7 @@ class Connector(multiprocessing.Process, MessageHandler):
         self.getAlbumsEvent.set()
 
 
-    def getAlbums(self):
+    def getAlbums(self): # throw in a thread pool to reduce metadata fetch time
         LOGGER.info("Getting Albums for Tags: %s" % self.taglist)
         self.getAlbumsEvent.clear()
         for tag in self.taglist:
@@ -89,7 +89,8 @@ class Connector(multiprocessing.Process, MessageHandler):
                     resp2 = self.session.get(self.apiurl % (tag, num))
                     albums = self.parser.parse_albums(resp2.content.decode("utf-8").split("\n"))
                     for album in albums:
-                        album.genre = tag #self.update_album_metadata(album)
+                        #pass
+                        album = self.update_album_metadata(album)
                     albumdata = {tag: albums}
                     self.send(MsgPutAlbums(data=albumdata))
                     LOGGER.debug("%s" % albums)
@@ -105,7 +106,7 @@ class Connector(multiprocessing.Process, MessageHandler):
         return album
 
 
-    def analyze(self, msg): # WIP
+    def analyze(self, msg):
         if msg is not None:
             LOGGER.info("Received Msg: %s in Q: %s" % (msg, self.queue))
             if isinstance(msg, MsgGetTags):
@@ -117,7 +118,7 @@ class Connector(multiprocessing.Process, MessageHandler):
 
 
     def run(self):
-        while not self.stop.is_set(): # event
+        while not self.stop.is_set():
             self.analyze(self.recieve())
             if self.getGenresEvent.is_set():
                 self.getGenres()
