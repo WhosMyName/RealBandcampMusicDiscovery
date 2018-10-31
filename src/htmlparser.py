@@ -1,9 +1,10 @@
-"""rewfew"""
+""" class to allow easy parsing in seperate thread """
 
 import sys
 import threading
 from time import sleep
 import logging
+
 from album import Album
 
 LOG_FORMAT = '%(asctime)-15s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(levelname)s | %(message)s'
@@ -17,18 +18,26 @@ flhdlr.setLevel(logging.DEBUG)
 flhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
 LOGGER.addHandler(strmhdlr)
 LOGGER.addHandler(flhdlr)
-def uncaught_exceptions(type, value, tb):
-    LOGGER.exception("Uncaught Exception of type %s was caught: %s\nTraceback:\n%s" % (type, value, tb))
+def uncaught_exceptions(exc_type, exc_val, exc_trace):
+    import traceback
+    if exc_type is None and exc_val is None and exc_trace is None:
+        exc_type, exc_val, exc_trace = sys.exc_info()
+    LOGGER.exception("Uncaught Exception of type %s was caught: %s\nTraceback:\n%s" % (exc_type, exc_val, traceback.print_tb(exc_trace)))
+    try:
+        del exc_type, exc_val, exc_trace
+    except:
+        LOGGER.exception(Exception("Exception args could not be deleted"))
 sys.excepthook = uncaught_exceptions
 
-class HTMLParser(threading.Thread):
+
+class HTMLParser():
     def __init__(self):
-        threading.Thread.__init__(self)
-        self.stop = threading.Event()
         LOGGER.debug("Initialized %s" % self)
 
+
     def __del__(self):
-        self.stop.set()
+        del(self)
+
 
     def parse_tags(self, data):
         LOGGER.info("Parsing Tags")
@@ -36,10 +45,12 @@ class HTMLParser(threading.Thread):
         for line in data:
             if "class=\"tag size" in line:
                 tag = line.split("/tag/")[1].split("\" ")[0]
-                LOGGER.debug("Found Tag: %s" % tag)
-                taglist.add(tag)
+                #LOGGER.debug("Found Tag: %s" % tag)
+                if tag != "":
+                    taglist.add(tag)
         return sorted(taglist)
-    
+
+
     def parse_albums(self, data):
         LOGGER.info("Parsing Albums")
         albumlist = set()
@@ -65,7 +76,9 @@ class HTMLParser(threading.Thread):
                 albumlist.add(alb)
             elif "<div class=\"pager_" in line:
                 albool = False
+        LOGGER.info("returning to connector")
         return albumlist
+
 
     def parse_maxpages(self, data):
         LOGGER.info("Getting Maxpages")
@@ -78,21 +91,19 @@ class HTMLParser(threading.Thread):
         LOGGER.debug("Maxpages: %s" % maxpages)
         return maxpages
 
-    def parse_album_genres(self, data):
+
+    def parse_album_metadata(self, data): #grab all metadata
         LOGGER.info("Parsing Tags")
         genrelist = set()
         for line in data:
             if "class=\"tag\" href=" in line:
                 genre = line.split("/tag/")[1].split("\" ")[0]
-                LOGGER.debug("Found Genre: %s" % genre) # LOGGER.debug
+                LOGGER.debug("Found Genre: %s" % genre)
                 genrelist.add(genre)
         return genrelist
+
 
     def get_cover(self, data):
         #parse url from data
         #return url
         pass
-
-    def run(self):
-        while not self.stop.is_set():
-            sleep(0.1)
