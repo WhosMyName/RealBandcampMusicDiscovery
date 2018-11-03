@@ -2,6 +2,7 @@ import multiprocessing
 from time import sleep
 import logging
 import sys
+import concurrent.futures as cf
 
 import requests
 
@@ -34,9 +35,11 @@ sys.excepthook = uncaught_exceptions
 
 class Connector(multiprocessing.Process, MessageHandler):
 
-    def __init__(self, queue):
+    def __init__(self, queue=None):
         multiprocessing.Process.__init__(self)
         MessageHandler.__init__(self, queue)
+
+        self.executor = cf.ThreadPoolExecutor(max_workers=15)
 
         self.getGenresEvent = multiprocessing.Event()
         self.getAlbumsEvent = multiprocessing.Event()
@@ -60,6 +63,7 @@ class Connector(multiprocessing.Process, MessageHandler):
         MessageHandler.__del__(self)
         self.parser.__del__()
         self.stop.set()
+        self.executor.shutdown()
 
 
     def getGenres(self):
@@ -78,19 +82,23 @@ class Connector(multiprocessing.Process, MessageHandler):
         self.getAlbumsEvent.set()
 
 
-    def getAlbums(self): # throw in a thread pool to reduce metadata fetch time
+    def getAlbums(self):
         LOGGER.info("Getting Albums for Tags: %s" % self.taglist)
         self.getAlbumsEvent.clear()
         for tag in self.taglist:
             resp1 = self.session.get(self.apiurl % (tag, "0"))
             maxpages = self.parser.parse_maxpages(resp1.content.decode("utf-8").split("\n"))
-            for num in range(1, 2):#maxpages+1):
+            for num in range(1, 6):#maxpages+1):
                 if not self.pauseFetch.is_set():
                     resp2 = self.session.get(self.apiurl % (tag, num))
                     albums = self.parser.parse_albums(resp2.content.decode("utf-8").split("\n"))
-                    for album in albums:
-                        #pass
-                        album = self.update_album_metadata(album)
+                    future_metadata = {self.executor.submit(self.update_album_metadata, album): album for album in albums}
+                    for future in cf.as_completed(future_metadata):
+                        supposed_album = future_metadata[future]
+                        try:
+                            album = future.result()
+                        except Exception as excp:
+                            LOGGER.exception("%s has thrown Exception:\n%s" % (supposed_album, excp))
                     albumdata = {tag: albums}
                     self.send(MsgPutAlbums(data=albumdata))
                     LOGGER.debug("%s" % albums)
@@ -130,9 +138,10 @@ class Connector(multiprocessing.Process, MessageHandler):
 
 def __main__():
     conn = Connector()
-    conn.start()
+    #conn.start()
     #conn.getGenres()
-    conn.getAlbums(print, "rock")
+    conn.taglist.add("metal")
+    conn.getAlbums()
     conn.__del__()
 
 if __name__ == "__main__":

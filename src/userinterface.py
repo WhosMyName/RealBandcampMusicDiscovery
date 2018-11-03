@@ -146,6 +146,11 @@ class MainWindow(QMainWindow, MessageHandler):
         self.helpMenu = self.menuBar.addMenu(" &Help")
 
         ###############MENU ACTIONS#################################
+        self.saveAction = QAction(" &Save", self)
+        self.saveAction.setShortcut("Ctrl+S")
+        self.saveAction.setStatusTip("Save results to file")
+        self.saveAction.triggered.connect(self.saveToFile)
+
         self.helpAction = QAction(" &Help", self)
         self.helpAction.setShortcut("F1")
         self.helpAction.setStatusTip("Show the help")
@@ -156,8 +161,16 @@ class MainWindow(QMainWindow, MessageHandler):
         self.quitAction.setStatusTip("Quit this Application")
         self.quitAction.triggered.connect(self.quitApplication)
 
+        self.helpMenu.addAction(self.saveAction)
         self.helpMenu.addAction(self.helpAction)
         self.helpMenu.addAction(self.quitAction)
+
+
+    def saveToFile(self):
+        with open("save.txt", "a") as save:
+            for album in self.albumlist:
+                save.write("%s - %s\t%s\n" % (album.band, album.name, album.url))
+        self.setStatusTip("Data saved to file!")
 
 
     def quitApplication(self):
