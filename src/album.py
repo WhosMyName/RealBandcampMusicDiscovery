@@ -11,6 +11,9 @@ class Album():
     def __repr__(self):
         return "%s - %s" % (self.__class__, str(self.__dict__))
 
+    def __hash__(self):
+        return hash((self.band, self.name))
+
 def __main__():
     alb = Album("GenericALbum.exe", {"nogenre", "gitgud"}, "https://github.com/whosmyname", "datboigud", "https://i.pinimg.com/originals/5e/40/5b/5e405be0320863d04c84b399dc2969ca.jpg")
     print(alb)

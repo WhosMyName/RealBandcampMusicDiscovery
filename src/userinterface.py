@@ -63,9 +63,7 @@ class MainWindow(QMainWindow, MessageHandler):
         self.scrollArea = QScrollArea()
         self.scrollArea.setWidget(self.widget)
         self.scrollArea.setWidgetResizable(True)
-        #self.scrollArea.widgetResizable()
         self.scrollArea.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
-        #self.scrollArea.setGeometry(QRect(0, 0, 1280, 690))
         self.setCentralWidget(self.scrollArea)
 
 
@@ -167,7 +165,12 @@ class MainWindow(QMainWindow, MessageHandler):
 
 
     def saveToFile(self):
+        genre = ""
+        for action in self.selectorlist:
+            selector = self.toolbar.widgetForAction(action)
+            genre = genre + " " + selector.currentData(0) + " #" 
         with open("save.txt", "a") as save:
+            save.write("##################%s#################\n" % genre)
             for album in self.albumlist:
                 save.write("%s - %s\t%s\n" % (album.band, album.name, album.url))
         self.setStatusTip("Data saved to file!")
@@ -188,9 +191,13 @@ class MainWindow(QMainWindow, MessageHandler):
     def refresh(self):
         LOGGER.info("refreshing selection")
         comp = set()
-        for selector in self.selectorlist:
+        for action in self.selectorlist:
+            selector = self.toolbar.widgetForAction(action)
             if selector.currentData(0) in self.fetchedAlbums.keys():
                 self.albumlist.update(self.fetchedAlbums[selector.currentData(0)])
+            elif selector.currentData(0) == "None":
+                self.toolbar.removeAction(action)
+                self.selectorlist.remove(action)
             else:
                 comp.add(selector.currentData(0))
         LOGGER.debug(comp)
@@ -202,7 +209,8 @@ class MainWindow(QMainWindow, MessageHandler):
     def comparison(self):
         self.setStatusTip("Comparing Albums...")
         comp = set()
-        for selector in self.selectorlist:
+        for action in self.selectorlist:
+            selector = self.toolbar.widgetForAction(action)
             comp.add(selector.currentData(0))
         LOGGER.debug(comp)
         compareset = set()
@@ -230,17 +238,20 @@ class MainWindow(QMainWindow, MessageHandler):
 
     def add_genre_selector(self):
         dd = QComboBox(parent=self)
+        dd.setEditable(True)
+        dd.setInsertPolicy(3)
         compfilter = QSortFilterProxyModel(dd)
         compfilter.setFilterCaseSensitivity(QtCore.Qt.CaseInsensitive)
+        compfilter.setFilterKeyColumn(1)
         compfilter.setSourceModel(dd.model())
         comp = QCompleter(compfilter, dd)
         comp.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
-        comp.setCompletionMode(QCompleter.UnfilteredPopupCompletion)
+        #comp.setCompletionMode(QCompleter.UnfilteredPopupCompletion)
+        comp.setCompletionMode(QCompleter.PopupCompletion)
         comp.setFilterMode(QtCore.Qt.MatchContains)
         dd.setCompleter(comp)
         dd.addItems(self.genrelist)
-        self.toolbar.addWidget(dd)
-        self.selectorlist.append(dd)
+        self.selectorlist.append(self.toolbar.addWidget(dd))
 
 
     def add_album(self, album):
@@ -288,7 +299,7 @@ class MainWindow(QMainWindow, MessageHandler):
         self.analyze(self.recieve())
 
 
-    def analyze(self, msg): # WIP
+    def analyze(self, msg):
         if msg is not None:
             LOGGER.info("Received Msg: %s in Q: %s" % (msg, self.queue))
             if isinstance(msg, MsgPutTags):
@@ -302,7 +313,7 @@ class MainWindow(QMainWindow, MessageHandler):
 
     def storeTagsFromMsg(self, msg):
         if msg.data is not None:
-            self.genrelist = set(msg.data)
+            self.genrelist = sorted(msg.data)
 
 
 ############################################## End Logikz #####################################################

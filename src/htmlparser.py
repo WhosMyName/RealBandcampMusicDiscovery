@@ -48,6 +48,7 @@ class HTMLParser():
                 #LOGGER.debug("Found Tag: %s" % tag)
                 if tag != "":
                     taglist.add(tag)
+        taglist.add("None")
         return sorted(taglist)
 
 

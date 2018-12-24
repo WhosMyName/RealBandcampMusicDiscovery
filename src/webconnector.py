@@ -88,7 +88,7 @@ class Connector(multiprocessing.Process, MessageHandler):
         for tag in self.taglist:
             resp1 = self.session.get(self.apiurl % (tag, "0"))
             maxpages = self.parser.parse_maxpages(resp1.content.decode("utf-8").split("\n"))
-            for num in range(1, 6):#maxpages+1):
+            for num in range(1, maxpages+1):
                 if not self.pauseFetch.is_set():
                     resp2 = self.session.get(self.apiurl % (tag, num))
                     albums = self.parser.parse_albums(resp2.content.decode("utf-8").split("\n"))
