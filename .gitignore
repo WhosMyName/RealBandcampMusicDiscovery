@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*/__pycache__
 
 # C extensions
 *.so
@@ -99,6 +100,9 @@ venv.bak/
 
 # mkdocs documentation
 /site
+
+# save file
+src/*.txt
 
 # mypy
 .mypy_cache/
