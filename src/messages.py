@@ -1,4 +1,4 @@
-""" Lé big [x]mq rip off aka classes to replace old event based IPC system that didn't worked """
+""" Lé big [x]mq rip off aka classes to replace old event based IPC system that didn't worked (redit: as expected :rollseyes:) """
 
 #give this bic boii a gud think
 

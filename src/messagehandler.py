@@ -7,26 +7,27 @@ import sys
 
 from messages import Msg
 
-LOG_FORMAT = '%(asctime)-15s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(levelname)s | %(message)s'
 LOGGER = logging.getLogger('rbmd.msghndlr')
+LOG_FORMAT = "%(asctime)-15s | %(levelname)s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(message)s"
 LOGGER.setLevel(logging.DEBUG)
-strmhdlr = logging.StreamHandler(sys.stdout)
-strmhdlr.setLevel(logging.INFO)
-strmhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
-flhdlr = logging.FileHandler("../logs/error.log", mode="a", encoding="utf-8", delay=False)
-flhdlr.setLevel(logging.DEBUG)
-flhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
-LOGGER.addHandler(strmhdlr)
-LOGGER.addHandler(flhdlr)
+STRMHDLR = logging.StreamHandler(stream=sys.stdout)
+STRMHDLR.setLevel(logging.INFO)
+STRMHDLR.setFormatter(logging.Formatter(LOG_FORMAT))
+FLHDLR = logging.FileHandler("../logs/error.log", mode="a", encoding="utf-8", delay=False)
+FLHDLR.setLevel(logging.DEBUG)
+FLHDLR.setFormatter(logging.Formatter(LOG_FORMAT))
+LOGGER.addHandler(STRMHDLR)
+LOGGER.addHandler(FLHDLR)
 def uncaught_exceptions(exc_type, exc_val, exc_trace):
+    """ injected function to log exceptions """
     import traceback
     if exc_type is None and exc_val is None and exc_trace is None:
         exc_type, exc_val, exc_trace = sys.exc_info()
-    LOGGER.exception("Uncaught Exception of type %s was caught: %s\nTraceback:\n%s" % (exc_type, exc_val, traceback.print_tb(exc_trace)))
+    LOGGER.exception("Uncaught Exception of type %s was caught: %s\nTraceback:\n%s", exc_type, exc_val, traceback.print_tb(exc_trace))
     try:
         del exc_type, exc_val, exc_trace
-    except:
-        LOGGER.exception(Exception("Exception args could not be deleted"))
+    except Exception as excp:
+        LOGGER.exception("Exception caught during tb arg deletion:\n%s", excp)
 sys.excepthook = uncaught_exceptions
 
 

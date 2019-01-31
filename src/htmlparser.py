@@ -6,7 +6,7 @@ import logging
 from album import Album
 
 LOGGER = logging.getLogger('rbmd.htmlparser')
-LOG_FORMAT = '%(asctime)-15s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(levelname)s | %(message)s'
+LOG_FORMAT = "%(asctime)-15s | %(levelname)s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(message)s"
 LOGGER.setLevel(logging.DEBUG)
 STRMHDLR = logging.StreamHandler(stream=sys.stdout)
 STRMHDLR.setLevel(logging.INFO)

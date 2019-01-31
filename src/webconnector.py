@@ -12,7 +12,7 @@ from htmlparser import parse_album_metadata, parse_albums, parse_maxpages, parse
 from messages import MsgGetTags, MsgPutAlbums, MsgPutFetchTags, MsgPutTags, MsgStop
 
 LOGGER = logging.getLogger('rbmd.webconnector')
-LOG_FORMAT = '%(asctime)-15s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(levelname)s | %(message)s'
+LOG_FORMAT = "%(asctime)-15s | %(levelname)s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(message)s"
 LOGGER.setLevel(logging.DEBUG)
 STRMHDLR = logging.StreamHandler(stream=sys.stdout)
 STRMHDLR.setLevel(logging.INFO)

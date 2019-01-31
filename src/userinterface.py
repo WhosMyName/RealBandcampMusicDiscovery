@@ -18,7 +18,7 @@ from messagehandler import MessageHandler
 
 
 LOGGER = logging.getLogger('rbmd.ui')
-LOG_FORMAT = '%(asctime)-15s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(levelname)s | %(message)s'
+LOG_FORMAT = "%(asctime)-15s | %(levelname)s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(message)s"
 LOGGER.setLevel(logging.DEBUG)
 STRMHDLR = logging.StreamHandler(stream=sys.stdout)
 STRMHDLR.setLevel(logging.INFO)
@@ -49,9 +49,9 @@ class MainWindow(QMainWindow, MessageHandler):
     def __init__(self):
         """ init """
         MessageHandler.__init__(self)
-        LOGGER.info("Self: %s" % self)
+        LOGGER.info("Self: %s", self)
         QMainWindow.__init__(self)
-        LOGGER.info("Self: %s" % self)
+        LOGGER.info("Self: %s", self)
 
         self.connector = Connector(self.queue)
 
@@ -79,7 +79,7 @@ class MainWindow(QMainWindow, MessageHandler):
         self.btnlist = []
         self.selectorlist = []
         self.fetchedAlbums = {}
-        LOGGER.info("Self: %s" % self)
+        LOGGER.info("Self: %s", self)
 
         self.closeEvent = self.close
         self.showEvent = self.show()
@@ -93,7 +93,7 @@ class MainWindow(QMainWindow, MessageHandler):
         self.msgbox = QMessageBox(self)
         self.msgbox.setText("Initializing...")
         self.msgbox.show()
-        LOGGER.info("Self: %s" % self)
+        LOGGER.info("Self: %s", self)
 
 
     def __del__(self):
@@ -278,10 +278,10 @@ class MainWindow(QMainWindow, MessageHandler):
             icn = QIcon() # see ref doc
             btn.setIcon(icn)
             btn.setIconSize(QSize(20, 20))
-            LOGGER.debug("Adding Album %s" % album.name)
+            LOGGER.debug("Adding Album %s", album.name)
             self.btnlist.append(btn)
         else:
-            LOGGER.error("Wanted to add %s, but it's not an Album" % album)
+            LOGGER.error("Wanted to add %s, but it's not an Album", album)
 
 
     def clearLayout(self):
@@ -316,21 +316,21 @@ class MainWindow(QMainWindow, MessageHandler):
 
 
     def msgcapture(self):
-        """"""
+        """ RUN """
         self.analyze(self.recieve())
 
 
     def analyze(self, msg):
         """ generic "callback" to check msgs and set flags and call functions """
         if msg is not None:
-            LOGGER.info("Received Msg: %s in Q: %s" % (msg, self.queue))
+            LOGGER.info("Received Msg: %s in Q: %s", msg, self.queue)
             if isinstance(msg, MsgPutTags):
                 self.storeTagsFromMsg(msg)
                 self.finalizeInit()
             elif isinstance(msg, MsgPutAlbums):
                 self.processAlbums(msg)
             else:
-                LOGGER.error("Unknown Message:\n%s" % msg)
+                LOGGER.error("Unknown Message:\n%s", msg)
 
 
     def storeTagsFromMsg(self, msg):
