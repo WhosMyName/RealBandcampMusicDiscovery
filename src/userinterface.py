@@ -17,32 +17,37 @@ from messages import *
 from messagehandler import MessageHandler
 
 
-LOG_FORMAT = '%(asctime)-15s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(levelname)s | %(message)s'
 LOGGER = logging.getLogger('rbmd.ui')
+LOG_FORMAT = '%(asctime)-15s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(levelname)s | %(message)s'
 LOGGER.setLevel(logging.DEBUG)
-strmhdlr = logging.StreamHandler(sys.stdout)
-strmhdlr.setLevel(logging.INFO)
-strmhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
-flhdlr = logging.FileHandler("../logs/error.log", mode="a", encoding="utf-8", delay=False)
-flhdlr.setLevel(logging.DEBUG)
-flhdlr.setFormatter(logging.Formatter(LOG_FORMAT))
-LOGGER.addHandler(strmhdlr)
-LOGGER.addHandler(flhdlr)
+STRMHDLR = logging.StreamHandler(stream=sys.stdout)
+STRMHDLR.setLevel(logging.INFO)
+STRMHDLR.setFormatter(logging.Formatter(LOG_FORMAT))
+FLHDLR = logging.FileHandler("../logs/error.log", mode="a", encoding="utf-8", delay=False)
+FLHDLR.setLevel(logging.DEBUG)
+FLHDLR.setFormatter(logging.Formatter(LOG_FORMAT))
+LOGGER.addHandler(STRMHDLR)
+LOGGER.addHandler(FLHDLR)
 def uncaught_exceptions(exc_type, exc_val, exc_trace):
+    """ injected function to log exceptions """
     import traceback
     if exc_type is None and exc_val is None and exc_trace is None:
         exc_type, exc_val, exc_trace = sys.exc_info()
-    LOGGER.exception("Uncaught Exception of type %s was caught: %s\nTraceback:\n%s" % (exc_type, exc_val, traceback.print_tb(exc_trace)))
+    LOGGER.exception("Uncaught Exception of type %s was caught: %s\nTraceback:\n%s", exc_type, exc_val, traceback.print_tb(exc_trace))
     try:
         del exc_type, exc_val, exc_trace
-    except:
-        LOGGER.exception(Exception("Exception args could not be deleted"))
+    except Exception as excp:
+        LOGGER.exception("Exception caught during tb arg deletion:\n%s", excp)
 sys.excepthook = uncaught_exceptions
 
 
 class MainWindow(QMainWindow, MessageHandler):
+    """ Class that refelcts the "main-window" """
+
+    # pylint: disable=too-many-instance-attributes
 
     def __init__(self):
+        """ init """
         MessageHandler.__init__(self)
         LOGGER.info("Self: %s" % self)
         QMainWindow.__init__(self)
@@ -92,12 +97,14 @@ class MainWindow(QMainWindow, MessageHandler):
 
 
     def __del__(self):
+        """ del """
         MessageHandler.__del__(self)
         self.connector.__del__()
         self.queue.close()
 
 
     def close(self, event):
+        """ injection func for closing ther window """
         self.__del__()
 
 
@@ -105,6 +112,7 @@ class MainWindow(QMainWindow, MessageHandler):
 
 
     def finalizeInit(self):
+        """ func to handle init finalization """
         self.msgbox.done(0)
         self.msgbox.destroy(True)
         self.clear.setEnabled(True)
@@ -116,6 +124,7 @@ class MainWindow(QMainWindow, MessageHandler):
 
 
     def initToolbar(self):
+        """ toolbar's init func"""
         self.toolbar = self.addToolBar("Generic Foobar")
 
         self.clear = self.toolbar.addAction("clear")
@@ -140,6 +149,7 @@ class MainWindow(QMainWindow, MessageHandler):
 
 
     def initMenu(self):
+        """ func that defines menu capabilities """
         self.menuBar = self.menuBar()
         self.helpMenu = self.menuBar.addMenu(" &Help")
 
@@ -165,22 +175,25 @@ class MainWindow(QMainWindow, MessageHandler):
 
 
     def saveToFile(self):
+        """ saves current albums with tags to file """
         genre = ""
         for action in self.selectorlist:
             selector = self.toolbar.widgetForAction(action)
-            genre = genre + " " + selector.currentData(0) + " #" 
+            genre = genre + " " + selector.currentData(0) + " #"
         with open("save.txt", "a") as save:
-            save.write("##################%s#################\n" % genre)
+            save.write("\n##################%s#################\n" % genre)
             for album in self.albumlist:
                 save.write("%s - %s\t%s\n" % (album.band, album.name, album.url))
         self.setStatusTip("Data saved to file!")
 
 
     def quitApplication(self):
+        """ quit """
         print("####################################Quit!############################################")
 
 
     def showHelp(self):
+        """ help """
         print("####################################Help!############################################")
 
 # WIP - add help menu that displays infos about the "program" and an updater button
@@ -189,6 +202,7 @@ class MainWindow(QMainWindow, MessageHandler):
 ############################################## Logikz #########################################################
 
     def refresh(self):
+        """ func to grab albums based on current selectors """
         LOGGER.info("refreshing selection")
         comp = set()
         for action in self.selectorlist:
@@ -207,6 +221,7 @@ class MainWindow(QMainWindow, MessageHandler):
 
 
     def comparison(self):
+        """ compares based on current selectors """
         self.setStatusTip("Comparing Albums...")
         comp = set()
         for action in self.selectorlist:
@@ -214,16 +229,18 @@ class MainWindow(QMainWindow, MessageHandler):
             comp.add(selector.currentData(0))
         LOGGER.debug(comp)
         compareset = set()
+        #for album in self.albumlist: #set().intersection lambda key: comp.issubset(album.genre)
         for album in self.albumlist:
             if comp.issubset(album.genre):
                 compareset.add(album)
-                LOGGER.debug("Added %s after comparison" % album.name)
+                LOGGER.debug("Added %s after comparison", album.name)
         self.albumlist = compareset
         self.updateLayout()
         self.setStatusTip("Comparison done!")
 
 
     def processAlbums(self, msg):
+        """  """
         albumsdict = msg.data
         for key, value in albumsdict.items():
             if key in self.fetchedAlbums.keys():
@@ -234,9 +251,10 @@ class MainWindow(QMainWindow, MessageHandler):
                 self.fetchedAlbums[key] = value
             self.albumlist.update(value)
         self.updateLayout()
-            
+
 
     def add_genre_selector(self):
+        """ creates a dropdown QComboBox """
         dd = QComboBox(parent=self)
         dd.setEditable(True)
         dd.setInsertPolicy(3)
@@ -246,7 +264,6 @@ class MainWindow(QMainWindow, MessageHandler):
         compfilter.setSourceModel(dd.model())
         comp = QCompleter(compfilter, dd)
         comp.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
-        #comp.setCompletionMode(QCompleter.UnfilteredPopupCompletion)
         comp.setCompletionMode(QCompleter.PopupCompletion)
         comp.setFilterMode(QtCore.Qt.MatchContains)
         dd.setCompleter(comp)
@@ -255,6 +272,7 @@ class MainWindow(QMainWindow, MessageHandler):
 
 
     def add_album(self, album):
+        """ creates an album button """
         if isinstance(album, Album):
             btn = QPushButton("Artist: %s\nAlbum: %s" % (album.band, album.name), None)
             icn = QIcon() # see ref doc
@@ -267,11 +285,13 @@ class MainWindow(QMainWindow, MessageHandler):
 
 
     def clearLayout(self):
+        """ clears current layout """
         self.albumlist = set()
         self.updateLayout()
 
 
     def updateLayout(self):
+        """ refreshes/updates current layout and adds all the albums to the layout """
         LOGGER.info("Refreshing Layout")
 
         for widget in self.layout.children():
@@ -280,26 +300,28 @@ class MainWindow(QMainWindow, MessageHandler):
         while self.layout.count() != 0:
             useless = self.layout.takeAt(0)
             del useless
-        
+
         for child in self.widget.children():
             if not isinstance(child, QGridLayout):
                 child.deleteLater()
-            
+
         self.btnlist = []
 
         for album in self.albumlist:
             self.add_album(album)
 
-        positions = [ (x,y) for x in range(int(ceil(len(self.btnlist)/5))) for y in range(1, 6) ]
+        positions = [(x, y) for x in range(int(ceil(len(self.btnlist)/5))) for y in range(1, 6)]
         for position, btn in zip(positions, self.btnlist):
             self.layout.addWidget(btn, *position)
 
 
     def msgcapture(self):
+        """"""
         self.analyze(self.recieve())
 
 
     def analyze(self, msg):
+        """ generic "callback" to check msgs and set flags and call functions """
         if msg is not None:
             LOGGER.info("Received Msg: %s in Q: %s" % (msg, self.queue))
             if isinstance(msg, MsgPutTags):
@@ -308,10 +330,11 @@ class MainWindow(QMainWindow, MessageHandler):
             elif isinstance(msg, MsgPutAlbums):
                 self.processAlbums(msg)
             else:
-                LOGGER.error("Unknown Message:\n%s" % msg)        
+                LOGGER.error("Unknown Message:\n%s" % msg)
 
 
     def storeTagsFromMsg(self, msg):
+        """ stores default tags from msg """
         if msg.data is not None:
             self.genrelist = sorted(msg.data)
 
@@ -319,6 +342,7 @@ class MainWindow(QMainWindow, MessageHandler):
 ############################################## End Logikz #####################################################
 
 def __main__():
+    """ main """
     app = QApplication(sys.argv)
     window = MainWindow()
     sys.exit(app.exec_())
