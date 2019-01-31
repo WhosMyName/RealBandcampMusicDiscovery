@@ -23,21 +23,27 @@ LOGGER.setLevel(logging.DEBUG)
 STRMHDLR = logging.StreamHandler(stream=sys.stdout)
 STRMHDLR.setLevel(logging.INFO)
 STRMHDLR.setFormatter(logging.Formatter(LOG_FORMAT))
-FLHDLR = logging.FileHandler("../logs/error.log", mode="a", encoding="utf-8", delay=False)
+FLHDLR = logging.FileHandler(
+    "../logs/error.log", mode="a", encoding="utf-8", delay=False)
 FLHDLR.setLevel(logging.DEBUG)
 FLHDLR.setFormatter(logging.Formatter(LOG_FORMAT))
 LOGGER.addHandler(STRMHDLR)
 LOGGER.addHandler(FLHDLR)
+
+
 def uncaught_exceptions(exc_type, exc_val, exc_trace):
     """ injected function to log exceptions """
     import traceback
     if exc_type is None and exc_val is None and exc_trace is None:
         exc_type, exc_val, exc_trace = sys.exc_info()
-    LOGGER.exception("Uncaught Exception of type %s was caught: %s\nTraceback:\n%s", exc_type, exc_val, traceback.print_tb(exc_trace))
+    LOGGER.exception("Uncaught Exception of type %s was caught: %s\nTraceback:\n%s",
+                     exc_type, exc_val, traceback.print_tb(exc_trace))
     try:
         del exc_type, exc_val, exc_trace
     except Exception as excp:
         LOGGER.exception("Exception caught during tb arg deletion:\n%s", excp)
+
+
 sys.excepthook = uncaught_exceptions
 
 
@@ -65,12 +71,12 @@ class MainWindow(QMainWindow, MessageHandler):
         self.widget.setMinimumSize(800, 600)
         self.widget.setLayout(self.layout)
 
-        self.scrollArea = QScrollArea()
-        self.scrollArea.setWidget(self.widget)
-        self.scrollArea.setWidgetResizable(True)
-        self.scrollArea.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
-        self.setCentralWidget(self.scrollArea)
-
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidget(self.widget)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setVerticalScrollBarPolicy(
+            QtCore.Qt.ScrollBarAlwaysOn)
+        self.setCentralWidget(self.scroll_area)
 
         self.setWindowTitle("RealBandcampMusicDisc0very")
         self.setGeometry(QRect(0, 0, 1280, 720))
@@ -78,15 +84,15 @@ class MainWindow(QMainWindow, MessageHandler):
         self.genrelist = set()
         self.btnlist = []
         self.selectorlist = []
-        self.fetchedAlbums = {}
+        self.fetched_albums = {}
         LOGGER.info("Self: %s", self)
 
-        self.closeEvent = self.close
-        self.showEvent = self.show()
+        self.close_event = self.close
+        self.show_event = self.show()
         self.statusBar()
         self.firstloaded = True
-        self.initMenu()
-        self.initToolbar()
+        self.init_menu()
+        self.init_toolbar()
         self.show()
         self.send(MsgGetTags())
         self.setStatusTip("Initializing...")
@@ -95,23 +101,22 @@ class MainWindow(QMainWindow, MessageHandler):
         self.msgbox.show()
         LOGGER.info("Self: %s", self)
 
-
     def __del__(self):
         """ del """
         MessageHandler.__del__(self)
         self.connector.__del__()
         self.queue.close()
 
-
     def close(self, event):
         """ injection func for closing ther window """
+        LOGGER.debug("Close event:\n%s", event)
         self.__del__()
 
 
 ############################################## QWindow Props ##################################################
 
 
-    def finalizeInit(self):
+    def finalize_init(self):
         """ func to handle init finalization """
         self.msgbox.done(0)
         self.msgbox.destroy(True)
@@ -122,13 +127,12 @@ class MainWindow(QMainWindow, MessageHandler):
         self.setStatusTip("Init done!")
         LOGGER.info("Init done")
 
-
-    def initToolbar(self):
+    def init_toolbar(self):
         """ toolbar's init func"""
         self.toolbar = self.addToolBar("Generic Foobar")
 
         self.clear = self.toolbar.addAction("clear")
-        self.clear.triggered.connect(self.clearLayout)
+        self.clear.triggered.connect(self.clear_layout)
         self.clear.setStatusTip("Clear All")
         self.clear.setEnabled(False)
 
@@ -147,34 +151,32 @@ class MainWindow(QMainWindow, MessageHandler):
         self.more.setStatusTip("Add an additional Selector")
         self.more.setEnabled(False)
 
-
-    def initMenu(self):
+    def init_menu(self):
         """ func that defines menu capabilities """
-        self.menuBar = self.menuBar()
-        self.helpMenu = self.menuBar.addMenu(" &Help")
+        self.menu_bar = self.menuBar()
+        self.help_menu = self.menu_bar.addMenu(" &Help")
 
         ###############MENU ACTIONS#################################
-        self.saveAction = QAction(" &Save", self)
-        self.saveAction.setShortcut("Ctrl+S")
-        self.saveAction.setStatusTip("Save results to file")
-        self.saveAction.triggered.connect(self.saveToFile)
+        self.save_action = QAction(" &Save", self)
+        self.save_action.setShortcut("Ctrl+S")
+        self.save_action.setStatusTip("Save results to file")
+        self.save_action.triggered.connect(self.saveToFile)
 
-        self.helpAction = QAction(" &Help", self)
-        self.helpAction.setShortcut("F1")
-        self.helpAction.setStatusTip("Show the help")
-        self.helpAction.triggered.connect(self.showHelp)
+        self.help_action = QAction(" &Help", self)
+        self.help_action.setShortcut("F1")
+        self.help_action.setStatusTip("Show the help")
+        self.help_action.triggered.connect(self.showHelp)
 
-        self.quitAction = QAction(" &Quit", self)
-        self.quitAction.setShortcut("Crtl+Q")
-        self.quitAction.setStatusTip("Quit this Application")
-        self.quitAction.triggered.connect(self.quitApplication)
+        self.quit_action = QAction(" &Quit", self)
+        self.quit_action.setShortcut("Crtl+Q")
+        self.quit_action.setStatusTip("Quit this Application")
+        self.quit_action.triggered.connect(self.quitApplication)
 
-        self.helpMenu.addAction(self.saveAction)
-        self.helpMenu.addAction(self.helpAction)
-        self.helpMenu.addAction(self.quitAction)
+        self.help_menu.addAction(self.save_action)
+        self.help_menu.addAction(self.help_action)
+        self.help_menu.addAction(self.quit_action)
 
-
-    def saveToFile(self):
+    def save_to_file(self):
         """ saves current albums with tags to file """
         genre = ""
         for action in self.selectorlist:
@@ -183,16 +185,15 @@ class MainWindow(QMainWindow, MessageHandler):
         with open("save.txt", "a") as save:
             save.write("\n##################%s#################\n" % genre)
             for album in self.albumlist:
-                save.write("%s - %s\t%s\n" % (album.band, album.name, album.url))
+                save.write("%s - %s\t%s\n" %
+                           (album.band, album.name, album.url))
         self.setStatusTip("Data saved to file!")
 
-
-    def quitApplication(self):
+    def quit_application(self):
         """ quit """
         print("####################################Quit!############################################")
 
-
-    def showHelp(self):
+    def show_help(self):
         """ help """
         print("####################################Help!############################################")
 
@@ -207,8 +208,9 @@ class MainWindow(QMainWindow, MessageHandler):
         comp = set()
         for action in self.selectorlist:
             selector = self.toolbar.widgetForAction(action)
-            if selector.currentData(0) in self.fetchedAlbums.keys():
-                self.albumlist.update(self.fetchedAlbums[selector.currentData(0)])
+            if selector.currentData(0) in self.fetched_albums.keys():
+                self.albumlist.update(
+                    self.fetched_albums[selector.currentData(0)])
             elif selector.currentData(0) == "None":
                 self.toolbar.removeAction(action)
                 self.selectorlist.remove(action)
@@ -217,8 +219,7 @@ class MainWindow(QMainWindow, MessageHandler):
         LOGGER.debug(comp)
         self.send(MsgPutFetchTags(data=comp))
         self.setStatusTip("Fetching Albums...")
-        self.updateLayout()
-
+        self.update_layout()
 
     def comparison(self):
         """ compares based on current selectors """
@@ -229,53 +230,51 @@ class MainWindow(QMainWindow, MessageHandler):
             comp.add(selector.currentData(0))
         LOGGER.debug(comp)
         compareset = set()
-        #for album in self.albumlist: #set().intersection lambda key: comp.issubset(album.genre)
+        # for album in self.albumlist: #set().intersection lambda key: comp.issubset(album.genre)
         for album in self.albumlist:
             if comp.issubset(album.genre):
                 compareset.add(album)
                 LOGGER.debug("Added %s after comparison", album.name)
         self.albumlist = compareset
-        self.updateLayout()
+        self.update_layout()
         self.setStatusTip("Comparison done!")
 
-
-    def processAlbums(self, msg):
-        """  """
+    def process_albums(self, msg):
+        """ parses albums from msg and distributes them to corresponding structures """
         albumsdict = msg.data
         for key, value in albumsdict.items():
-            if key in self.fetchedAlbums.keys():
-                albumsfetched = self.fetchedAlbums[key]
+            if key in self.fetched_albums.keys():
+                albumsfetched = self.fetched_albums[key]
                 albumsfetched.update(value)
-                self.fetchedAlbums[key] = albumsfetched
+                self.fetched_albums[key] = albumsfetched
             else:
-                self.fetchedAlbums[key] = value
+                self.fetched_albums[key] = value
             self.albumlist.update(value)
-        self.updateLayout()
-
+        self.update_layout()
 
     def add_genre_selector(self):
         """ creates a dropdown QComboBox """
-        dd = QComboBox(parent=self)
-        dd.setEditable(True)
-        dd.setInsertPolicy(3)
-        compfilter = QSortFilterProxyModel(dd)
+        tempcombobox = QComboBox(parent=self)
+        tempcombobox.setEditable(True)
+        tempcombobox.setInsertPolicy(3)
+        compfilter = QSortFilterProxyModel(tempcombobox)
         compfilter.setFilterCaseSensitivity(QtCore.Qt.CaseInsensitive)
         compfilter.setFilterKeyColumn(1)
-        compfilter.setSourceModel(dd.model())
-        comp = QCompleter(compfilter, dd)
+        compfilter.setSourceModel(tempcombobox.model())
+        comp = QCompleter(compfilter, tempcombobox)
         comp.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
         comp.setCompletionMode(QCompleter.PopupCompletion)
         comp.setFilterMode(QtCore.Qt.MatchContains)
-        dd.setCompleter(comp)
-        dd.addItems(self.genrelist)
-        self.selectorlist.append(self.toolbar.addWidget(dd))
-
+        tempcombobox.setCompleter(comp)
+        tempcombobox.addItems(self.genrelist)
+        self.selectorlist.append(self.toolbar.addWidget(tempcombobox))
 
     def add_album(self, album):
         """ creates an album button """
         if isinstance(album, Album):
-            btn = QPushButton("Artist: %s\nAlbum: %s" % (album.band, album.name), None)
-            icn = QIcon() # see ref doc
+            btn = QPushButton("Artist: %s\nAlbum: %s" %
+                              (album.band, album.name), None)
+            icn = QIcon()  # see ref doc
             btn.setIcon(icn)
             btn.setIconSize(QSize(20, 20))
             LOGGER.debug("Adding Album %s", album.name)
@@ -283,14 +282,12 @@ class MainWindow(QMainWindow, MessageHandler):
         else:
             LOGGER.error("Wanted to add %s, but it's not an Album", album)
 
-
-    def clearLayout(self):
+    def clear_layout(self):
         """ clears current layout """
         self.albumlist = set()
-        self.updateLayout()
+        self.update_layout()
 
-
-    def updateLayout(self):
+    def update_layout(self):
         """ refreshes/updates current layout and adds all the albums to the layout """
         LOGGER.info("Refreshing Layout")
 
@@ -310,30 +307,28 @@ class MainWindow(QMainWindow, MessageHandler):
         for album in self.albumlist:
             self.add_album(album)
 
-        positions = [(x, y) for x in range(int(ceil(len(self.btnlist)/5))) for y in range(1, 6)]
+        positions = [(x, y) for x in range(int(ceil(len(self.btnlist)/5)))
+                     for y in range(1, 6)]
         for position, btn in zip(positions, self.btnlist):
             self.layout.addWidget(btn, *position)
-
 
     def msgcapture(self):
         """ RUN """
         self.analyze(self.recieve())
-
 
     def analyze(self, msg):
         """ generic "callback" to check msgs and set flags and call functions """
         if msg is not None:
             LOGGER.info("Received Msg: %s in Q: %s", msg, self.queue)
             if isinstance(msg, MsgPutTags):
-                self.storeTagsFromMsg(msg)
-                self.finalizeInit()
+                self.store_tags_from_msg(msg)
+                self.finalize_init()
             elif isinstance(msg, MsgPutAlbums):
                 self.processAlbums(msg)
             else:
                 LOGGER.error("Unknown Message:\n%s", msg)
 
-
-    def storeTagsFromMsg(self, msg):
+    def store_tags_from_msg(self, msg):
         """ stores default tags from msg """
         if msg.data is not None:
             self.genrelist = sorted(msg.data)
