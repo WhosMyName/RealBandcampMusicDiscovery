@@ -102,7 +102,7 @@ venv.bak/
 /site
 
 # save file
-src/*.txt
+src/save.txt
 
 # mypy
 .mypy_cache/
