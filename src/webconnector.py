@@ -9,7 +9,7 @@ import requests
 
 from messagehandler import MessageHandler
 from htmlparser import parse_album_metadata, parse_albums, parse_maxpages, parse_tags
-from messages import MsgGetTags, MsgPutAlbums, MsgPutFetchTags, MsgPutTags, MsgStop
+from messages import MsgGetTags, MsgPutAlbums, MsgPutFetchTags, MsgPutTags, MsgQuit
 
 LOGGER = logging.getLogger('rbmd.webconnector')
 LOG_FORMAT = "%(asctime)-15s | %(levelname)s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(message)s"
@@ -65,6 +65,7 @@ class Connector(multiprocessing.Process, MessageHandler):
         self.taglist = set()
         self.stop = multiprocessing.Event()
         self.session = requests.Session()
+        self.session.headers.update({"User-Agent": "Mozilla/5.0 (Linux; Android 7.0; PLUS Build/NRD90M) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.98 Mobile Safari/537.36",})
         self.apiurl = "https://bandcamp.com/tag/%s?page=%s"  # tag, pagenum
         self.start()
         LOGGER.debug("Initialized %s", self)
@@ -137,7 +138,7 @@ class Connector(multiprocessing.Process, MessageHandler):
                 self.get_genres_event.set()
             elif isinstance(msg, MsgPutFetchTags):
                 self.get_fetch_tags(msg)
-            elif isinstance(msg, MsgStop):
+            elif isinstance(msg, MsgQuit):
                 self.__del__()
             else:
                 LOGGER.error("Unknown Message:\n%s", msg)

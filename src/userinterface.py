@@ -2,18 +2,15 @@
 
 import sys
 from math import ceil
-from time import sleep
 import logging
-import multiprocessing
 
-from PyQt5 import QtCore, QtGui
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
+from PyQt5.QtWidgets import QMainWindow, QGridLayout, QLayout, QWidget, QMessageBox, QAction, QComboBox, QCompleter, QPushButton, QApplication, QScrollArea
+from PyQt5.QtCore import QTimer, QRect, QSortFilterProxyModel, QSize, Qt
+from PyQt5.QtGui import QIcon
 
 from album import Album
 from webconnector import Connector
-from messages import *
+from messages import MsgGetTags, MsgPutFetchTags, MsgPutTags, MsgPutAlbums, MsgQuit
 from messagehandler import MessageHandler
 
 
@@ -75,7 +72,7 @@ class MainWindow(QMainWindow, MessageHandler):
         self.scroll_area.setWidget(self.widget)
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setVerticalScrollBarPolicy(
-            QtCore.Qt.ScrollBarAlwaysOn)
+            Qt.ScrollBarAlwaysOn)
         self.setCentralWidget(self.scroll_area)
 
         self.setWindowTitle("RealBandcampMusicDisc0very")
@@ -87,14 +84,13 @@ class MainWindow(QMainWindow, MessageHandler):
         self.fetched_albums = {}
         LOGGER.info("Self: %s", self)
 
-        self.close_event = self.close
-        self.show_event = self.show()
+        self.closeEvent = self.close
         self.statusBar()
         self.firstloaded = True
         self.init_menu()
         self.init_toolbar()
         self.show()
-        self.send(MsgGetTags())
+        self.send(MsgGetTags(None))
         self.setStatusTip("Initializing...")
         self.msgbox = QMessageBox(self)
         self.msgbox.setText("Initializing...")
@@ -104,11 +100,10 @@ class MainWindow(QMainWindow, MessageHandler):
     def __del__(self):
         """ del """
         MessageHandler.__del__(self)
-        self.connector.__del__()
-        self.queue.close()
 
     def close(self, event):
         """ injection func for closing ther window """
+        self.send(MsgQuit(None))
         LOGGER.debug("Close event:\n%s", event)
         self.__del__()
 
@@ -160,17 +155,17 @@ class MainWindow(QMainWindow, MessageHandler):
         self.save_action = QAction(" &Save", self)
         self.save_action.setShortcut("Ctrl+S")
         self.save_action.setStatusTip("Save results to file")
-        self.save_action.triggered.connect(self.saveToFile)
+        self.save_action.triggered.connect(self.save_to_file)
 
         self.help_action = QAction(" &Help", self)
         self.help_action.setShortcut("F1")
         self.help_action.setStatusTip("Show the help")
-        self.help_action.triggered.connect(self.showHelp)
+        self.help_action.triggered.connect(self.show_help)
 
         self.quit_action = QAction(" &Quit", self)
         self.quit_action.setShortcut("Crtl+Q")
         self.quit_action.setStatusTip("Quit this Application")
-        self.quit_action.triggered.connect(self.quitApplication)
+        self.quit_action.triggered.connect(self.quit_application)
 
         self.help_menu.addAction(self.save_action)
         self.help_menu.addAction(self.help_action)
@@ -189,11 +184,11 @@ class MainWindow(QMainWindow, MessageHandler):
                            (album.band, album.name, album.url))
         self.setStatusTip("Data saved to file!")
 
-    def quit_application(self):
+    def quit_application(self): # implement this
         """ quit """
         print("####################################Quit!############################################")
 
-    def show_help(self):
+    def show_help(self): # implement this
         """ help """
         print("####################################Help!############################################")
 
@@ -258,13 +253,13 @@ class MainWindow(QMainWindow, MessageHandler):
         tempcombobox.setEditable(True)
         tempcombobox.setInsertPolicy(3)
         compfilter = QSortFilterProxyModel(tempcombobox)
-        compfilter.setFilterCaseSensitivity(QtCore.Qt.CaseInsensitive)
+        compfilter.setFilterCaseSensitivity(Qt.CaseInsensitive)
         compfilter.setFilterKeyColumn(1)
         compfilter.setSourceModel(tempcombobox.model())
         comp = QCompleter(compfilter, tempcombobox)
-        comp.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
+        comp.setCaseSensitivity(Qt.CaseInsensitive)
         comp.setCompletionMode(QCompleter.PopupCompletion)
-        comp.setFilterMode(QtCore.Qt.MatchContains)
+        comp.setFilterMode(Qt.MatchContains)
         tempcombobox.setCompleter(comp)
         tempcombobox.addItems(self.genrelist)
         self.selectorlist.append(self.toolbar.addWidget(tempcombobox))
@@ -324,7 +319,7 @@ class MainWindow(QMainWindow, MessageHandler):
                 self.store_tags_from_msg(msg)
                 self.finalize_init()
             elif isinstance(msg, MsgPutAlbums):
-                self.processAlbums(msg)
+                self.process_albums(msg)
             else:
                 LOGGER.error("Unknown Message:\n%s", msg)
 

@@ -4,18 +4,26 @@
 
 
 class Msg():
-    """Base Class for all Msg-Types"""
+    """ Base Class for all Msg-Types """
 
     def __init__(self, data=None):
-        """simple init"""
+        """ simple init """
         self.sender = None
         self.data = data
+
+    def get_sender(self):
+        """ returns sender """
+        return self.sender
+
+    def get_data(self):
+        """ returns data """
+        return self.data
 
 
 class MsgGetTags(Msg):
     """ class to set signal for getting all tags """
 
-    def __init__(self, data=None):
+    def __init__(self, data):
         super().__init__(data)
 
 
@@ -47,8 +55,8 @@ class MsgPause(Msg):
         super().__init__(data)
 
 
-class MsgStop(Msg):
-    """ class to signal the stop of album fetching """
+class MsgQuit(Msg):
+    """ class to signal the stop of program execution """
 
     def __init__(self, data):
         super().__init__(data)

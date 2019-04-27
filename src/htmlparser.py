@@ -55,13 +55,13 @@ def parse_albums(data):
     cover_url = ""
 
     for line in data:
-        if ">new arrivals</a>" in line and not albool:
+        if "item_list" in line and not albool:
             albool = True
         elif "<a href=" in line and albool:
             url = line.split("<a href=\"")[1].split("\" title")[0]
             name = line.split("title=\"")[1].split("\">")[0]
         elif "<div class=\"tralbum" in line and albool:
-            cover_url = line.split("url(")[1].split(")'")[0]
+            cover_url = line.split("src=\"")[1].split("\">")[0]
         elif "<div class=\"itemsubtext" in line and albool:
             band = line.split("\">")[1].split("</")[0]
             alb = Album(name, url, band, cover_url)

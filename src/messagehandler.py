@@ -1,6 +1,5 @@
-""" Base Msghandler Class to reduce duplication """
+""" Base Msghandler Class to handle IPC """
 import types
-from time import sleep
 from multiprocessing import Queue
 import logging
 import sys
@@ -38,13 +37,15 @@ sys.excepthook = uncaught_exceptions
 
 
 class MessageHandler():
-    def __init__(self, queue=None, size=5000, interval=0.5):
-        if queue == None:
+    """ the messagehandler class """
+    def __init__(self, queue=None, size=5000):
+        if queue is None:
             self.queue = Queue(size)
         else:
             self.queue = queue
 
     def __init_subclass__(cls):
+        """ subclass init to make sure that subclasses implement the analyze function """
         if "analyze" in cls.__dict__.keys():
             if not isinstance(cls.__dict__["analyze"], types.FunctionType):
                 raise AttributeError("Function \"analyze\" must be a function")
@@ -53,19 +54,22 @@ class MessageHandler():
         super().__init_subclass__()
 
     def __del__(self):
+        """ delete dis """
         self.queue.cancel_join_thread()
         self.queue.close()
 
     def send(self, msg):
+        """ sets metadata and enqueues message """
         msg.sender = self.__class__.__name__
-        LOGGER.info("%s sent: %s" % (msg.sender, msg))
+        LOGGER.info("%s sent: %s", msg.sender, msg)
         self.queue.put(msg, block=True)
 
     def recieve(self):
+        """ pulls message from queue and returns it from queue it it's originator """
         if not self.queue.empty():
-            msg = self.queue.get(block=True)
+            msg = self.queue.get(block=False)
             if isinstance(msg, Msg):
                 if msg.sender == self.__class__.__name__:
                     self.send(msg)
                     return None
-                return msg
+            return msg #Either all return statements in a function should return an expression, or none of them should. (inconsistent-return-statements)
