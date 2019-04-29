@@ -10,7 +10,7 @@ from PyQt5.QtGui import QIcon
 
 from album import Album
 from webconnector import Connector
-from messages import MsgGetTags, MsgPutFetchTags, MsgPutTags, MsgPutAlbums, MsgQuit
+from messages import MsgGetTags, MsgPutFetchTags, MsgPutTags, MsgPutAlbums, MsgDownloadAlbums, MsgFinishedDownloads, MsgQuit
 from messagehandler import MessageHandler
 
 
@@ -110,7 +110,6 @@ class MainWindow(QMainWindow, MessageHandler):
 
 ############################################## QWindow Props ##################################################
 
-
     def finalize_init(self):
         """ func to handle init finalization """
         self.msgbox.done(0)
@@ -121,6 +120,14 @@ class MainWindow(QMainWindow, MessageHandler):
         self.more.setEnabled(True)
         self.setStatusTip("Init done!")
         LOGGER.info("Init done")
+
+    def show_download_finished(self):
+        """ quick messagebox to notify user about finished downloads """
+        self.msgbox.setText("Finished Downloading!")
+        self.msgbox.setStandardButtons(QMessageBox.Ok)
+        self.msgbox.button(QMessageBox.Ok).animateClick(3000)
+        self.msgbox.show()
+        self.setStatusTip("Downloads finished...")
 
     def init_toolbar(self):
         """ toolbar's init func"""
@@ -167,7 +174,19 @@ class MainWindow(QMainWindow, MessageHandler):
         self.quit_action.setStatusTip("Quit this Application")
         self.quit_action.triggered.connect(self.quit_application)
 
+        self.save_selected_action = QAction(" &Save selected", self)
+        self.save_selected_action.setShortcut("Ctrl+Shift+S")
+        self.save_selected_action.setStatusTip("Save selected to file")
+        self.save_selected_action.triggered.connect(self.save_selected)
+
+        self.download_selected_action = QAction(" &Download selected", self)
+        self.download_selected_action.setShortcut("Ctrl+Shift+D")
+        self.download_selected_action.setStatusTip("Download selected Albums")
+        self.download_selected_action.triggered.connect(self.download_selected)
+
         self.help_menu.addAction(self.save_action)
+        self.help_menu.addAction(self.save_selected_action)
+        self.help_menu.addAction(self.download_selected_action)
         self.help_menu.addAction(self.help_action)
         self.help_menu.addAction(self.quit_action)
 
@@ -184,11 +203,51 @@ class MainWindow(QMainWindow, MessageHandler):
                            (album.band, album.name, album.url))
         self.setStatusTip("Data saved to file!")
 
-    def quit_application(self): # implement this
+    def save_selected(self):
+        """ saves current albums with tags to file """
+        albums = []
+        for child in self.widget.children():
+            LOGGER.debug(child)
+            if isinstance(child, QPushButton):
+                if child.isChecked():
+                    albums.append(child.statusTip())
+        genre = ""
+        LOGGER.debug(albums)
+        for action in self.selectorlist:
+            selector = self.toolbar.widgetForAction(action)
+            genre = genre + " " + selector.currentData(0) + " #"
+        with open("save.txt", "a") as save:
+            save.write("\n##################%s#################\n" % genre)
+            LOGGER.info("Saving to file")
+            for metaalbum in albums:
+                for album in self.albumlist:
+                    LOGGER.error("%s\t%s", metaalbum, album.__str__())
+                    if metaalbum == album.__str__():
+                        save.write("%s - %s\t%s\n" %
+                                   (album.band, album.name, album.url))
+        self.setStatusTip("Selected saved to file!")
+
+    def download_selected(self):
+        """ Downloads selected albums """
+        albums = []
+        for child in self.widget.children():
+            LOGGER.debug(child)
+            if isinstance(child, QPushButton):
+                if child.isChecked():
+                    albums.append(child.statusTip())
+        downloadlist = []
+        for metaalbum in albums:
+            for album in self.albumlist:
+                if metaalbum == album.__str__():
+                    downloadlist.append(album)
+        self.send(MsgDownloadAlbums(downloadlist))
+        self.setStatusTip("Downloading Albums!")
+
+    def quit_application(self):  # implement this
         """ quit """
         print("####################################Quit!############################################")
 
-    def show_help(self): # implement this
+    def show_help(self):  # implement this
         """ help """
         print("####################################Help!############################################")
 
@@ -269,9 +328,11 @@ class MainWindow(QMainWindow, MessageHandler):
         if isinstance(album, Album):
             btn = QPushButton("Artist: %s\nAlbum: %s" %
                               (album.band, album.name), None)
+            btn.setStatusTip("%s - %s" % (album.band, album.name))
             icn = QIcon()  # see ref doc
             btn.setIcon(icn)
             btn.setIconSize(QSize(20, 20))
+            btn.setCheckable(True)
             LOGGER.debug("Adding Album %s", album.name)
             self.btnlist.append(btn)
         else:
@@ -320,6 +381,8 @@ class MainWindow(QMainWindow, MessageHandler):
                 self.finalize_init()
             elif isinstance(msg, MsgPutAlbums):
                 self.process_albums(msg)
+            elif isinstance(msg, MsgFinishedDownloads):
+                self.show_download_finished()
             else:
                 LOGGER.error("Unknown Message:\n%s", msg)
 

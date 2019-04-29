@@ -2,6 +2,7 @@
 
 import sys
 import logging
+import json
 
 from album import Album
 
@@ -52,7 +53,7 @@ def parse_albums(data):
     name = ""
     url = ""
     band = ""
-    cover_url = ""
+    cover = ""
 
     for line in data:
         if "item_list" in line and not albool:
@@ -61,10 +62,10 @@ def parse_albums(data):
             url = line.split("<a href=\"")[1].split("\" title")[0]
             name = line.split("title=\"")[1].split("\">")[0]
         elif "<div class=\"tralbum" in line and albool:
-            cover_url = line.split("src=\"")[1].split("\">")[0]
+            cover = line.split("src=\"")[1].split("\">")[0]
         elif "<div class=\"itemsubtext" in line and albool:
             band = line.split("\">")[1].split("</")[0]
-            alb = Album(name, url, band, cover_url)
+            alb = Album(name, url, band, cover)
             LOGGER.debug(alb)
             albumlist.add(alb)
         elif "<div class=\"pager_" in line:
@@ -97,6 +98,24 @@ def parse_album_metadata(data): #grab all metadata
             genrelist.add(genre)
     return genrelist
 
+
+def parse_downloadable_tracks(data):
+    """ parses songs from album page """
+    inline = False
+    for line in data:
+        if "var TralbumData" in line:
+            inline = True
+        elif "trackinfo" in line and inline:
+            data = json.loads(line.strip("trackinfo: ").strip(","))
+            inline = False
+
+    tracklist = []
+    for track in data:
+        if not track["file"] is None:
+            name = track["title"].replace("/", u"\u29F8").replace("/", u"\u29F9") + ".mp3"
+            url = track["file"]["mp3-128"]
+            tracklist.append([name, url])
+    return tracklist
 
 #def get_cover(data):
     #parse url from data

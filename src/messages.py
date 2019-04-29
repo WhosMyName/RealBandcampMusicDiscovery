@@ -48,6 +48,20 @@ class MsgPutAlbums(Msg):
         super().__init__(data)
 
 
+class MsgDownloadAlbums(Msg):
+    """ class to download albums """
+
+    def __init__(self, data):
+        super().__init__(data)
+
+
+class MsgFinishedDownloads(Msg):
+    """ class to download albums """
+
+    def __init__(self, data):
+        super().__init__(data)
+
+
 class MsgPause(Msg):
     """ class to signal pause of current fetch cycle for albums """
 

@@ -4,12 +4,21 @@ from time import sleep
 import logging
 import sys
 import concurrent.futures as cf
+import os
+#import sqlite3
 
 import requests
 
 from messagehandler import MessageHandler
-from htmlparser import parse_album_metadata, parse_albums, parse_maxpages, parse_tags
-from messages import MsgGetTags, MsgPutAlbums, MsgPutFetchTags, MsgPutTags, MsgQuit
+from htmlparser import parse_album_metadata, parse_albums, parse_maxpages, parse_tags, parse_downloadable_tracks
+from messages import MsgGetTags, MsgPutAlbums, MsgPutFetchTags, MsgPutTags, MsgDownloadAlbums, MsgFinishedDownloads, MsgQuit
+
+if os.name == "nt":
+    SLASH = "\\"
+else:
+    SLASH = "/"
+CWD = os.path.dirname(os.path.realpath(__file__)) + SLASH
+DOWNLOADLOCATION = CWD + ".." + SLASH + "Albums" + SLASH
 
 LOGGER = logging.getLogger('rbmd.webconnector')
 LOG_FORMAT = "%(asctime)-15s | %(levelname)s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(message)s"
@@ -76,6 +85,14 @@ class Connector(multiprocessing.Process, MessageHandler):
         self.stop.set()
         self.executor.shutdown()
 
+    def download_file(self, srcfile, srcurl):
+        """Function to Downloadad and verify downloaded Files"""
+        if not os.path.isfile(srcfile):
+            LOGGER.debug("Downloading %s as %s", srcurl, srcfile)
+            with open(srcfile, "wb") as fifo:#open in binary write mode
+                response = self.session.get(srcurl)#get request
+                fifo.write(response.content)#write to file
+
     def get_genres(self):
         """ func to request + parse bandcamps default tags """
         self.get_genres_event.clear()
@@ -97,6 +114,7 @@ class Connector(multiprocessing.Process, MessageHandler):
         LOGGER.info("Getting Albums for Tags: %s", self.taglist)
         self.get_albums_event.clear()
         for tag in self.taglist:
+            # check albums from db
             resp1 = self.session.get(self.apiurl % (tag, "0"))
             maxpages = parse_maxpages(
                 resp1.content.decode("utf-8").split("\n"))
@@ -117,6 +135,7 @@ class Connector(multiprocessing.Process, MessageHandler):
                     albumdata = {tag: albums}
                     self.send(MsgPutAlbums(data=albumdata))
                     LOGGER.debug("%s", albums)
+                    # add albums to db
                 else:
                     sleep(2)
                     return None
@@ -128,7 +147,25 @@ class Connector(multiprocessing.Process, MessageHandler):
         resp = self.session.get(album.url)
         album.genre = parse_album_metadata(
             resp.content.decode("utf-8").split("\n"))
+        #download album cover and update album.cover
         return album
+
+    def add_album_to_db(self, album):
+        """ func to smartly insert new albums into db """
+
+    def download_albums(self, msg):
+        """ downloads all albums from message """
+        albumlist = msg.get_data()
+        for album in albumlist:
+            location = DOWNLOADLOCATION + album.__str__() + SLASH
+            if not os.path.exists(location):
+                os.makedirs(location)
+            resp = self.session.get(album.url)
+            tracklist = parse_downloadable_tracks(resp.content.decode("utf-8").split("\n"))
+            for track in tracklist:
+                self.download_file(location+track[0], track[1])
+        self.send(MsgFinishedDownloads(None))
+
 
     def analyze(self, msg):
         """ generic "callback" to check msgs and set flags and call functions """
@@ -138,6 +175,8 @@ class Connector(multiprocessing.Process, MessageHandler):
                 self.get_genres_event.set()
             elif isinstance(msg, MsgPutFetchTags):
                 self.get_fetch_tags(msg)
+            elif isinstance(msg, MsgDownloadAlbums):
+                self.download_albums(msg)
             elif isinstance(msg, MsgQuit):
                 self.__del__()
             else:
