@@ -20,15 +20,22 @@ class Album():
     def __hash__(self):
         return hash((self.band, self.name))
 
+    def __eq__(self, other):
+        return self.__hash__() == other.__hash__()
+
 
 def __main__():
     alb = Album("GenericALbum.exe", "https://github.com/whosmyname", "datboigud",
                 "https://i.pinimg.com/originals/5e/40/5b/5e405be0320863d04c84b399dc2969ca.jpg")
-    alb2 = Album("GenericALbum.exe", "https://github.zguhjkcom/whosmyname", "datboigud",
+    alb2 = Album("GenericALbum.exe", "https://github.com/whosmyname", "datboigud",
                  "https://i.pindfzguhiojkplöimg.com/originals/5e/40/5b/5e405be0320863d04c84b399dc2969ca.jpg")
     print(alb.__hash__())
     print(alb2.__hash__())
     print(alb.__hash__() == alb2.__hash__())
+    sed = set()
+    sed.add(alb)
+    sed.add(alb2)
+    print(sed)
 
 
 if __name__ == "__main__":
