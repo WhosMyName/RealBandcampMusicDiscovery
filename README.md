@@ -7,11 +7,13 @@ GUI-based Utility that allows you to "discover" Music on Bandcamp.com - the expe
 ## I like *really* bad puns
 </details>  
 
-#### Version: Alpha 27 (please also check out the dev branch)  
+#### Version: Alpha 38  
+#### [Dev Branch for latest progress](https://github.com/WhosMyName/RealBandcampMusicDiscovery/tree/dev "Emergerd he's working in progress")  
 
 ------------------
 ### ToC
 * General Info
+* Features
 * Usage Guide
 ------------------
 
@@ -40,6 +42,15 @@ This is for @all, that want to extend their music horizon, without getting punis
 
 ------------------
 
+### Features
+
+* Fetching Albums+Metadata
+* Genre-based comparison for Albums
+* Saving of (selected) Albums as text
+* Downloading of selected Albums
+
+------------------
+
 ### Usage Guide
 
 First clone/download this repo:
@@ -53,7 +64,9 @@ Execute the setup file for your OS:
 Linux/Unix/MacOS: `setup.sh`  
 Windows: `setup.bat`  
 After the install has successfully finished, just execute the userinterface (WIP):  
-`cd src` and `python3 userinterface.py` (*nix) or `python userinterface.py` (Win)  
+`cd src` and  
+`python3 userinterface.py` (*nix) or  
+`python userinterface.py` (Win)  
 
 The main inteface will be shown and will execute it's init sequence. (Wait until the small window dissappears)  
 ##### PIC1
@@ -72,3 +85,4 @@ You can also save the current list to a file, called `save.txt`. (More Options t
 That's all (for now).  
 
 [Also shameless self-advertisement](https://github.com/WhosMyName/BandCampLoader "Whos Downloader for Bandcamp -> https://github.com/WhosMyName/BandCampLoader")  
+
