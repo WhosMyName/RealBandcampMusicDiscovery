@@ -46,8 +46,8 @@ This is for @all, that want to extend their music horizon, without getting punis
 
 * Fetching Albums+Metadata
 * Genre-based comparison for Albums
-* Saving of (selected) Albums as text
-* Downloading of selected Albums
+* Saving (selected) Albums as text
+* Downloading selected Albums
 
 ------------------
 
