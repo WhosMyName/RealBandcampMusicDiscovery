@@ -4,9 +4,9 @@ import sys
 from math import ceil
 import logging
 
-from PyQt5.QtWidgets import QMainWindow, QGridLayout, QLayout, QWidget, QMessageBox, QAction, QComboBox, QCompleter, QPushButton, QApplication, QScrollArea
+from PyQt5.QtWidgets import QMainWindow, QGridLayout, QLayout, QWidget, QMessageBox, QAction, QComboBox, QCompleter, QToolButton, QApplication, QScrollArea
 from PyQt5.QtCore import QTimer, QRect, QSortFilterProxyModel, QSize, Qt
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QPixmap
 
 from album import Album
 from webconnector import Connector
@@ -131,7 +131,7 @@ class MainWindow(QMainWindow, MessageHandler):
 
     def init_toolbar(self):
         """ toolbar's init func"""
-        self.toolbar = self.addToolBar("Generic Foobar")
+        self.toolbar = self.addToolBar("Toolbar")
 
         self.clear = self.toolbar.addAction("clear")
         self.clear.triggered.connect(self.clear_layout)
@@ -208,7 +208,7 @@ class MainWindow(QMainWindow, MessageHandler):
         albums = []
         for child in self.widget.children():
             LOGGER.debug(child)
-            if isinstance(child, QPushButton):
+            if isinstance(child, QToolButton):
                 if child.isChecked():
                     albums.append(child.statusTip())
         genre = ""
@@ -232,7 +232,7 @@ class MainWindow(QMainWindow, MessageHandler):
         albums = []
         for child in self.widget.children():
             LOGGER.debug(child)
-            if isinstance(child, QPushButton):
+            if isinstance(child, QToolButton):
                 if child.isChecked():
                     albums.append(child.statusTip())
         downloadlist = []
@@ -284,7 +284,6 @@ class MainWindow(QMainWindow, MessageHandler):
             comp.add(selector.currentData(0))
         LOGGER.debug(comp)
         compareset = set()
-        # for album in self.albumlist: #set().intersection lambda key: comp.issubset(album.genre)
         for album in self.albumlist:
             if comp.issubset(album.genre):
                 compareset.add(album)
@@ -326,13 +325,17 @@ class MainWindow(QMainWindow, MessageHandler):
     def add_album(self, album):
         """ creates an album button """
         if isinstance(album, Album):
-            btn = QPushButton("Artist: %s\nAlbum: %s" %
-                              (album.band, album.name), None)
+            btn = QToolButton()
+            btn.setText("Artist: %s\nAlbum: %s" % (album.band, album.name))
             btn.setStatusTip("%s - %s" % (album.band, album.name))
-            icn = QIcon()  # see ref doc
-            btn.setIcon(icn)
-            btn.setIconSize(QSize(20, 20))
+            pix = QPixmap()
+            pix.loadFromData(album.cover)
+            btn.setIcon(QIcon(pix))
+            btn.setIconSize(QSize(200, 200))
+            btn.setMaximumWidth(225)
+            btn.setFixedWidth(250)
             btn.setCheckable(True)
+            btn.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
             LOGGER.debug("Adding Album %s", album.name)
             self.btnlist.append(btn)
         else:

@@ -148,6 +148,8 @@ class Connector(multiprocessing.Process, MessageHandler):
         album.genre = parse_album_metadata(
             resp.content.decode("utf-8").split("\n"))
         #download album cover and update album.cover
+        resp2 = self.session.get(album.cover)
+        album.cover = resp2.content
         return album
 
     def add_album_to_db(self, album):

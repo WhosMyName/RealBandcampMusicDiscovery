@@ -106,3 +106,9 @@ src/save.txt
 
 # mypy
 .mypy_cache/
+
+# Albums
+Albums/
+
+# Deploy
+build-linux-64

@@ -4,12 +4,13 @@
 class Album():
     """ generic class to reflect all album relevant data """
 
-    def __init__(self, name, url, band, cover):
+    def __init__(self, name, url, band, cover, cover_url):
         self.name = name
         self.genre = set()
         self.url = url
         self.band = band
         self.cover = cover
+        self.cover_url = cover_url
 
     def __str__(self):
         return "%s - %s" % (self.band, self.name)

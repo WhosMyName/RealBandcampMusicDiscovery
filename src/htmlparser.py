@@ -54,6 +54,7 @@ def parse_albums(data):
     url = ""
     band = ""
     cover = ""
+    cover_url = ""
 
     for line in data:
         if "item_list" in line and not albool:
@@ -63,9 +64,10 @@ def parse_albums(data):
             name = line.split("title=\"")[1].split("\">")[0]
         elif "<div class=\"tralbum" in line and albool:
             cover = line.split("src=\"")[1].split("\">")[0]
+            cover_url = cover
         elif "<div class=\"itemsubtext" in line and albool:
             band = line.split("\">")[1].split("</")[0]
-            alb = Album(name, url, band, cover)
+            alb = Album(name, url, band, cover, cover_url)
             LOGGER.debug(alb)
             albumlist.add(alb)
         elif "<div class=\"pager_" in line:
