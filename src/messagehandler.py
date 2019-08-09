@@ -67,15 +67,16 @@ class MessageHandler():
 
     def recieve(self):
         """ pulls message from queue and returns it from queue if it's originator """
-        if not self.queue.empty():
-            msg = self.queue.get(block=False)
-            if isinstance(msg, Msg):
-                LOGGER.debug("%s received Msg: %s in Q from: %s", self.__class__.__name__, msg, msg.sender)
-                if msg.sender == self.__class__.__name__:
-                    LOGGER.debug("Resent Message to Queue")
-                    self.send(msg)
-                    return None
-                return msg #Either all return statements in a function should return an expression, or none of them should. (inconsistent-return-statements)
-        else:
+        try:
+            if not self.queue.empty():
+                msg = self.queue.get(block=False)
+                if isinstance(msg, Msg):
+                    LOGGER.debug("%s received Msg: %s in Q from: %s", self.__class__.__name__, msg, msg.sender)
+                    if msg.sender == self.__class__.__name__:
+                        LOGGER.debug("Resent Message to Queue")
+                        self.send(msg)
+                        return None
+                    return msg #Either all return statements in a function should return an expression, or none of them should. (inconsistent-return-statements)
+        except _queue.Empty as empt: # lyke sumboody gives a fak
             pass
-            #LOGGER.debug("%s is empty", self.queue)
+        

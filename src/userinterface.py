@@ -346,7 +346,6 @@ class MainWindow(QMainWindow, MessageHandler):
             btn.setText("Artist: %s\nAlbum: %s" % (album.band, album.name))
             btn.setStatusTip("%s - %s" % (album.band, album.name))
             pix = QPixmap()
-            print(album.cover)
             pix.loadFromData(album.cover)
             btn.setIcon(QIcon(pix))
             btn.setIconSize(QSize(200, 200))
