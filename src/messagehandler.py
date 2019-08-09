@@ -39,6 +39,7 @@ sys.excepthook = uncaught_exceptions
 class MessageHandler():
     """ the messagehandler class """
     def __init__(self, queue=None, size=5000):
+        LOGGER.debug("%s init", self)
         if queue is None:
             self.queue = Queue(size)
         else:
@@ -61,15 +62,20 @@ class MessageHandler():
     def send(self, msg):
         """ sets metadata and enqueues message """
         msg.sender = self.__class__.__name__
-        LOGGER.info("%s sent: %s", msg.sender, msg)
+        LOGGER.debug("%s sent: %s", msg.sender, msg)
         self.queue.put(msg, block=True)
 
     def recieve(self):
-        """ pulls message from queue and returns it from queue it it's originator """
+        """ pulls message from queue and returns it from queue if it's originator """
         if not self.queue.empty():
             msg = self.queue.get(block=False)
             if isinstance(msg, Msg):
+                LOGGER.debug("%s received Msg: %s in Q from: %s", self.__class__.__name__, msg, msg.sender)
                 if msg.sender == self.__class__.__name__:
+                    LOGGER.debug("Resent Message to Queue")
                     self.send(msg)
                     return None
-            return msg #Either all return statements in a function should return an expression, or none of them should. (inconsistent-return-statements)
+                return msg #Either all return statements in a function should return an expression, or none of them should. (inconsistent-return-statements)
+        else:
+            pass
+            #LOGGER.debug("%s is empty", self.queue)

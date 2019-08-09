@@ -10,7 +10,7 @@ from PyQt5.QtGui import QIcon, QPixmap
 
 from album import Album
 from webconnector import Connector
-from messages import MsgGetTags, MsgPutFetchTags, MsgPutTags, MsgPutAlbums, MsgDownloadAlbums, MsgFinishedDownloads, MsgQuit
+from messages import MsgGetTags, MsgPutFetchTags, MsgPutTags, MsgPutAlbums, MsgDownloadAlbums, MsgFinishedDownloads, MsgQuit, MsgPause
 from messagehandler import MessageHandler
 
 
@@ -60,7 +60,7 @@ class MainWindow(QMainWindow, MessageHandler):
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.msgcapture)
-        self.timer.start(5000)
+        self.timer.start(1000)
 
         self.layout = QGridLayout()
         self.layout.setSizeConstraint(QLayout.SetMinimumSize)
@@ -103,8 +103,9 @@ class MainWindow(QMainWindow, MessageHandler):
 
     def close(self, event):
         """ injection func for closing ther window """
+        self.send(MsgPause(None))
         self.send(MsgQuit(None))
-        LOGGER.debug("Close event:\n%s", event)
+        #LOGGER.debug("Close event:\n%s", event)
         self.__del__()
 
 
@@ -159,6 +160,7 @@ class MainWindow(QMainWindow, MessageHandler):
         self.help_menu = self.menu_bar.addMenu(" &Help")
 
         ###############MENU ACTIONS#################################
+        ### Help ###
         self.save_action = QAction(" &Save", self)
         self.save_action.setShortcut("Ctrl+S")
         self.save_action.setStatusTip("Save results to file")
@@ -189,6 +191,17 @@ class MainWindow(QMainWindow, MessageHandler):
         self.help_menu.addAction(self.download_selected_action)
         self.help_menu.addAction(self.help_action)
         self.help_menu.addAction(self.quit_action)
+        ### Help End ###
+
+        ### Pause ###
+        self.pause_action = QAction(" &Pause", self)
+        self.pause_action.setShortcut("Ctrl+P")
+        self.pause_action.setStatusTip("Pause current fetch cycle")
+        self.pause_action.triggered.connect(self.pause_fetch)
+        self.menu_bar.addAction(self.pause_action)
+        ### Pause End ###
+
+    ### Menu Functions ###
 
     def save_to_file(self):
         """ saves current albums with tags to file """
@@ -242,6 +255,10 @@ class MainWindow(QMainWindow, MessageHandler):
                     downloadlist.append(album)
         self.send(MsgDownloadAlbums(downloadlist))
         self.setStatusTip("Downloading Albums!")
+
+    def pause_fetch(self):
+        self.send(MsgPause(None))
+        self.setStatusTip("Aborting fetch cycle...")
 
     def quit_application(self):  # implement this
         """ quit """
@@ -329,6 +346,7 @@ class MainWindow(QMainWindow, MessageHandler):
             btn.setText("Artist: %s\nAlbum: %s" % (album.band, album.name))
             btn.setStatusTip("%s - %s" % (album.band, album.name))
             pix = QPixmap()
+            print(album.cover)
             pix.loadFromData(album.cover)
             btn.setIcon(QIcon(pix))
             btn.setIconSize(QSize(200, 200))
@@ -377,8 +395,7 @@ class MainWindow(QMainWindow, MessageHandler):
 
     def analyze(self, msg):
         """ generic "callback" to check msgs and set flags and call functions """
-        if msg is not None:
-            LOGGER.info("Received Msg: %s in Q: %s", msg, self.queue)
+        if msg != None:
             if isinstance(msg, MsgPutTags):
                 self.store_tags_from_msg(msg)
                 self.finalize_init()
@@ -387,7 +404,7 @@ class MainWindow(QMainWindow, MessageHandler):
             elif isinstance(msg, MsgFinishedDownloads):
                 self.show_download_finished()
             else:
-                LOGGER.error("Unknown Message:\n%s", msg)
+                LOGGER.debug("Unused Message:\n%s", msg)
 
     def store_tags_from_msg(self, msg):
         """ stores default tags from msg """
