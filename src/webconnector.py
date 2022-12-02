@@ -9,14 +9,18 @@ import os
 
 import requests
 
+from album import Album
 from messagehandler import MessageHandler
 from htmlparser import parse_album_metadata, parse_albums, parse_maxpages, parse_tags, parse_downloadable_tracks
-from messages import MsgGetTags, MsgPutAlbums, MsgPutFetchTags, MsgPutTags, MsgDownloadAlbums, MsgFinishedDownloads, MsgQuit
+from messages import MsgGetTags, MsgPutAlbums, MsgPutFetchTags, MsgPutTags, MsgDownloadAlbums, MsgFinishedDownloads, MsgPause, MsgQuit
 
-if os.name == "nt":
+from os import name as os_name
+
+if os_name == "nt":
     SLASH = "\\"
 else:
     SLASH = "/"
+
 CWD = os.path.dirname(os.path.realpath(__file__)) + SLASH
 DOWNLOADLOCATION = CWD + ".." + SLASH + "Albums" + SLASH
 
@@ -26,8 +30,7 @@ LOGGER.setLevel(logging.DEBUG)
 STRMHDLR = logging.StreamHandler(stream=sys.stdout)
 STRMHDLR.setLevel(logging.INFO)
 STRMHDLR.setFormatter(logging.Formatter(LOG_FORMAT))
-FLHDLR = logging.FileHandler(
-    "../logs/error.log", mode="a", encoding="utf-8", delay=False)
+FLHDLR = logging.FileHandler(f"..{SLASH}logs{SLASH}error.log", mode="a", encoding="utf-8", delay=False)
 FLHDLR.setLevel(logging.DEBUG)
 FLHDLR.setFormatter(logging.Formatter(LOG_FORMAT))
 LOGGER.addHandler(STRMHDLR)
@@ -50,40 +53,37 @@ def uncaught_exceptions(exc_type, exc_val, exc_trace):
 sys.excepthook = uncaught_exceptions
 
 
-class Connector(multiprocessing.Process, MessageHandler):
+class Connector(multiprocessing.Process):
     """ Connector Class """
 
     # pylint: disable=too-many-instance-attributes
 
-    def __init__(self, queue=None):
+    def __init__(self, connectionParams: dict):
         """ init init init """
         multiprocessing.Process.__init__(self)
-        MessageHandler.__init__(self, queue)
-
-        self.executor = cf.ThreadPoolExecutor(max_workers=15)
+        self.executor = None
+        self.messagehandler = None
+        self.connectionParams = connectionParams
 
         self.get_genres_event = multiprocessing.Event()
         self.get_albums_event = multiprocessing.Event()
-        self.tags_ready_event = multiprocessing.Event()
-        self.albums_ready_event = multiprocessing.Event()
-        self.get_fetchtags_from_q = multiprocessing.Event()
         self.pause_fetch = multiprocessing.Event()
         self.pause_fetch.clear()
-        self.tags_ready_event.clear()
 
         self.taglist = set()
-        self.stop = multiprocessing.Event()
-        self.session = requests.Session()
-        self.session.headers.update({"User-Agent": "Mozilla/5.0 (Linux; Android 7.0; PLUS Build/NRD90M) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.98 Mobile Safari/537.36",})
-        self.apiurl = "https://bandcamp.com/tag/%s?page=%s"  # tag, pagenum
+        self.stop: bool = False
+        self.session: requests.Session = requests.Session()
+        self.session.headers.update({"User-Agent": "Mozilla/5.0 (Android 12; Mobile; rv:97.0) Gecko/97.0 Firefox/97.0",})
+        self.apiurl: str = "https://bandcamp.com/tag/%s?page=%s"  # tag, pagenum
         self.start()
-        LOGGER.debug("Initialized %s", self)
 
     def __del__(self):
         """ delet dis """
-        MessageHandler.__del__(self)
-        self.stop.set()
-        self.executor.shutdown()
+        if self.messagehandler:
+            self.messagehandler.__del__()
+        if self.executor:
+            self.executor.shutdown()
+        self.stop = True
 
     def download_file(self, srcfile, srcurl):
         """Function to Downloadad and verify downloaded Files"""
@@ -98,9 +98,9 @@ class Connector(multiprocessing.Process, MessageHandler):
         self.get_genres_event.clear()
         LOGGER.info("Obtaining Tags")
         resp = self.session.get("https://bandcamp.com/tags")
-        # LOGGER.debug(resp.content.decode("utf-8"))
-        tags = parse_tags(resp.content.decode("utf-8").split("\n"))
-        self.send(MsgPutTags(data=tags))
+        LOGGER.debug(resp.text)
+        tags = parse_tags(resp.text.split("\n"))
+        self.messagehandler.send(MsgPutTags(data=tags))
         LOGGER.info("Msg sent")
 
     def get_fetch_tags(self, msg):
@@ -117,23 +117,23 @@ class Connector(multiprocessing.Process, MessageHandler):
             # check albums from db
             resp1 = self.session.get(self.apiurl % (tag, "0"))
             maxpages = parse_maxpages(
-                resp1.content.decode("utf-8").split("\n"))
+                resp1.text.split("\n"))
             for num in range(1, maxpages+1):
                 if not self.pause_fetch.is_set():
                     resp2 = self.session.get(self.apiurl % (tag, num))
                     albums = parse_albums(
-                        resp2.content.decode("utf-8").split("\n"))
+                        resp2.text.split("\n"))
                     future_metadata = {self.executor.submit(
                         self.update_album_metadata, album): album for album in albums}
                     for future in cf.as_completed(future_metadata):
                         supposed_album = future_metadata[future]
                         try:
-                            album = future.result()
+                            future.result()
                         except Exception as excp:
                             LOGGER.exception(
                                 "%s has thrown Exception:\n%s", supposed_album, excp)
                     albumdata = {tag: albums}
-                    self.send(MsgPutAlbums(data=albumdata))
+                    self.messagehandler.send(MsgPutAlbums(data=albumdata))
                     LOGGER.debug("%s", albums)
                     # add albums to db
                 else:
@@ -141,17 +141,19 @@ class Connector(multiprocessing.Process, MessageHandler):
                     return None
         return None
 
-    def update_album_metadata(self, album):  # get pictures too
+    def update_album_metadata(self, album: Album):  # get pictures too
         """ func that grabs+parses album metadata """
         LOGGER.debug("Updating Tags for %s", album.name)
         resp = self.session.get(album.url)
         album.genre = parse_album_metadata(
-            resp.content.decode("utf-8").split("\n"))
-        #download album cover and update album.cover
+            resp.text.split("\n"))
+        resp2 = self.session.get(album.cover_url)
+        album.cover = resp2.content
         return album
 
-    def add_album_to_db(self, album):
-        """ func to smartly insert new albums into db """
+    #def add_album_to_db(self, album):
+    #    """ func to smartly insert new albums into db """
+    #    pass
 
     def download_albums(self, msg):
         """ downloads all albums from message """
@@ -161,16 +163,19 @@ class Connector(multiprocessing.Process, MessageHandler):
             if not os.path.exists(location):
                 os.makedirs(location)
             resp = self.session.get(album.url)
-            tracklist = parse_downloadable_tracks(resp.content.decode("utf-8").split("\n"))
+            tracklist = parse_downloadable_tracks(resp.text.split("\n"))
             for track in tracklist:
-                self.download_file(location+track[0], track[1])
-        self.send(MsgFinishedDownloads(None))
+                self.download_file(f"{location}{track[0]}.mp3", track[1])
+            if album.cover["data"]:
+                with open(f"{location}cover.jpg", "w+b") as cover:
+                    album.cover["data"].seek(0)
+                    cover.write(album.cover["data"].read())
+        self.messagehandler.send(MsgFinishedDownloads(None))
 
 
     def analyze(self, msg):
         """ generic "callback" to check msgs and set flags and call functions """
         if msg is not None:
-            LOGGER.info("Received Msg: %s in Q: %s", msg, self.queue)
             if isinstance(msg, MsgGetTags):
                 self.get_genres_event.set()
             elif isinstance(msg, MsgPutFetchTags):
@@ -179,26 +184,31 @@ class Connector(multiprocessing.Process, MessageHandler):
                 self.download_albums(msg)
             elif isinstance(msg, MsgQuit):
                 self.__del__()
+            elif isinstance(msg, MsgPause):
+                self.pause_fetch.set()
             else:
                 LOGGER.error("Unknown Message:\n%s", msg)
 
     def run(self):
         """ RUN! """
-        while not self.stop.is_set():
-            self.analyze(self.recieve())
+        # little hack the avoids pickling a queue when forking ;)
+        self.executor: cf.ThreadPoolExecutor = cf.ThreadPoolExecutor(max_workers=15)
+        self.messagehandler = MessageHandler(self.connectionParams, isClient=True)
+        LOGGER.info(f"Creating handler {self.messagehandler}")
+        while not self.stop:
+            self.analyze(self.messagehandler.recieve())
             if self.get_genres_event.is_set():
                 self.get_genres()
             elif self.get_albums_event.is_set():
                 self.get_albums()
-
-            sleep(0.5)
+            sleep(0.1)
 
 
 def __main__():
     """ basic testing main func """
     conn = Connector()
     # conn.start()
-    # conn.get_genres()
+    #conn.get_genres()
     conn.taglist.add("metal")
     conn.get_albums()
     conn.__del__()
