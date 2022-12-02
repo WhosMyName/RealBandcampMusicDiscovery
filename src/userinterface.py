@@ -3,14 +3,22 @@
 import sys
 from math import ceil
 import logging
+from os import name as os_name
+from hashlib import sha256
+from datetime import datetime
 
-from PyQt5.QtWidgets import QMainWindow, QGridLayout, QLayout, QWidget, QMessageBox, QAction, QComboBox, QCompleter, QPushButton, QApplication, QScrollArea
-from PyQt5.QtCore import QTimer, QRect, QSortFilterProxyModel, QSize, Qt
-from PyQt5.QtGui import QIcon
+if os_name == "nt":
+    SLASH = "\\"
+else:
+    SLASH = "/"
+
+from PySide6.QtWidgets import QMainWindow, QGridLayout, QLayout, QWidget, QMessageBox, QComboBox, QCompleter, QToolButton, QApplication, QScrollArea
+from PySide6.QtCore import QTimer, QRect, QSortFilterProxyModel, QSize, Qt
+from PySide6.QtGui import QIcon, QAction, QPixmap
 
 from album import Album
 from webconnector import Connector
-from messages import MsgGetTags, MsgPutFetchTags, MsgPutTags, MsgPutAlbums, MsgDownloadAlbums, MsgFinishedDownloads, MsgQuit
+from messages import MsgGetTags, MsgPutFetchTags, MsgPutTags, MsgPutAlbums, MsgDownloadAlbums, MsgFinishedDownloads, MsgPause, MsgQuit
 from messagehandler import MessageHandler
 
 
@@ -20,8 +28,7 @@ LOGGER.setLevel(logging.DEBUG)
 STRMHDLR = logging.StreamHandler(stream=sys.stdout)
 STRMHDLR.setLevel(logging.INFO)
 STRMHDLR.setFormatter(logging.Formatter(LOG_FORMAT))
-FLHDLR = logging.FileHandler(
-    "../logs/error.log", mode="a", encoding="utf-8", delay=False)
+FLHDLR = logging.FileHandler(f"..{SLASH}logs{SLASH}error.log", mode="a", encoding="utf-8", delay=False)
 FLHDLR.setLevel(logging.DEBUG)
 FLHDLR.setFormatter(logging.Formatter(LOG_FORMAT))
 LOGGER.addHandler(STRMHDLR)
@@ -44,28 +51,30 @@ def uncaught_exceptions(exc_type, exc_val, exc_trace):
 sys.excepthook = uncaught_exceptions
 
 
-class MainWindow(QMainWindow, MessageHandler):
+class MainWindow(QMainWindow):
     """ Class that refelcts the "main-window" """
 
     # pylint: disable=too-many-instance-attributes
 
     def __init__(self):
         """ init """
-        MessageHandler.__init__(self)
-        LOGGER.info("Self: %s", self)
-        QMainWindow.__init__(self)
-        LOGGER.info("Self: %s", self)
+        super().__init__()
+        port = MessageHandler.checkPortFree(10666)
+        authkey = bytes(sha256(str(datetime.now()).encode()).hexdigest(), encoding="utf-8")
+        connParams = {"address": "127.0.0.1", "port": port, "key": authkey}
+        self.messagehandler = MessageHandler(connParams)
+        LOGGER.info(f"Self: {self}")
 
-        self.connector = Connector(self.queue)
+        self.connector = Connector(connectionParams=connParams)
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.msgcapture)
-        self.timer.start(5000)
+        self.timer.start(100)  
 
         self.layout = QGridLayout()
         self.layout.setSizeConstraint(QLayout.SetMinimumSize)
         self.widget = QWidget()
-        self.widget.setMinimumSize(800, 600)
+        self.widget.setMinimumSize(800, 650)
         self.widget.setLayout(self.layout)
 
         self.scroll_area = QScrollArea()
@@ -82,33 +91,42 @@ class MainWindow(QMainWindow, MessageHandler):
         self.btnlist = []
         self.selectorlist = []
         self.fetched_albums = {}
-        LOGGER.info("Self: %s", self)
-
+        
+        self.tagTimer = QTimer(self)
+        self.tagTimer.timeout.connect(self.getTags)
+        self.tagTimer.setSingleShot(True)
+        self.tagTimer.start(1000)
         self.closeEvent = self.close
         self.statusBar()
         self.firstloaded = True
         self.init_menu()
         self.init_toolbar()
         self.show()
-        self.send(MsgGetTags(None))
         self.setStatusTip("Initializing...")
         self.msgbox = QMessageBox(self)
         self.msgbox.setText("Initializing...")
         self.msgbox.show()
-        LOGGER.info("Self: %s", self)
+        LOGGER.info(f"Init done...")
 
     def __del__(self):
         """ del """
-        MessageHandler.__del__(self)
+        self.messagehandler.__del__()
 
     def close(self, event):
         """ injection func for closing ther window """
-        self.send(MsgQuit(None))
+        # display "shutting down..." window
+        self.messagehandler.send(MsgQuit(None))
         LOGGER.debug("Close event:\n%s", event)
         self.__del__()
 
 
 ############################################## QWindow Props ##################################################
+
+    def getTags(self):
+        """"""
+        if self.messagehandler.isConnected():
+            self.messagehandler.send(MsgGetTags(None))
+            self.tagTimer.setSingleShot(False)
 
     def finalize_init(self):
         """ func to handle init finalization """
@@ -131,7 +149,7 @@ class MainWindow(QMainWindow, MessageHandler):
 
     def init_toolbar(self):
         """ toolbar's init func"""
-        self.toolbar = self.addToolBar("Generic Foobar")
+        self.toolbar = self.addToolBar("Toolbar")
 
         self.clear = self.toolbar.addAction("clear")
         self.clear.triggered.connect(self.clear_layout)
@@ -156,48 +174,58 @@ class MainWindow(QMainWindow, MessageHandler):
     def init_menu(self):
         """ func that defines menu capabilities """
         self.menu_bar = self.menuBar()
-        self.help_menu = self.menu_bar.addMenu(" &Help")
 
         ###############MENU ACTIONS#################################
-        self.save_action = QAction(" &Save", self)
-        self.save_action.setShortcut("Ctrl+S")
-        self.save_action.setStatusTip("Save results to file")
-        self.save_action.triggered.connect(self.save_to_file)
-
-        self.help_action = QAction(" &Help", self)
-        self.help_action.setShortcut("F1")
-        self.help_action.setStatusTip("Show the help")
-        self.help_action.triggered.connect(self.show_help)
-
+        ### Quit ###
         self.quit_action = QAction(" &Quit", self)
         self.quit_action.setShortcut("Crtl+Q")
         self.quit_action.setStatusTip("Quit this Application")
         self.quit_action.triggered.connect(self.quit_application)
+        self.menu_bar.addAction(self.quit_action)
 
+        ### Help ###
+        self.help_action = QAction(" &Help", self)
+        self.help_action.setShortcut("F1")
+        self.help_action.setStatusTip("Show the help")
+        self.help_action.triggered.connect(self.show_help)
+        self.menu_bar.addAction(self.help_action)
+
+        ### Save All ###
+        self.save_action = QAction(" &Save", self)
+        self.save_action.setShortcut("Ctrl+S")
+        self.save_action.setStatusTip("Save results to file")
+        self.save_action.triggered.connect(self.save_to_file)
+        self.menu_bar.addAction(self.save_action)
+
+        ### Save Selected ###
         self.save_selected_action = QAction(" &Save selected", self)
         self.save_selected_action.setShortcut("Ctrl+Shift+S")
         self.save_selected_action.setStatusTip("Save selected to file")
         self.save_selected_action.triggered.connect(self.save_selected)
+        self.menu_bar.addAction(self.save_selected_action)
 
+        ### Download Selected ###
         self.download_selected_action = QAction(" &Download selected", self)
         self.download_selected_action.setShortcut("Ctrl+Shift+D")
         self.download_selected_action.setStatusTip("Download selected Albums")
         self.download_selected_action.triggered.connect(self.download_selected)
+        self.menu_bar.addAction(self.download_selected_action)
 
-        self.help_menu.addAction(self.save_action)
-        self.help_menu.addAction(self.save_selected_action)
-        self.help_menu.addAction(self.download_selected_action)
-        self.help_menu.addAction(self.help_action)
-        self.help_menu.addAction(self.quit_action)
+        ### Pause ###
+        self.pause_action = QAction(" &Pause", self)
+        self.pause_action.setShortcut("Ctrl+P")
+        self.pause_action.setStatusTip("Pause current fetch cycle")
+        self.pause_action.triggered.connect(self.pause_fetch)
+        self.menu_bar.addAction(self.pause_action)
 
     def save_to_file(self):
         """ saves current albums with tags to file """
         genre = ""
         for action in self.selectorlist:
             selector = self.toolbar.widgetForAction(action)
-            genre = genre + " " + selector.currentData(0) + " #"
+            genre = f"{genre} {selector.currentData(0)} x"
         with open("save.txt", "a") as save:
-            save.write("\n##################%s#################\n" % genre)
+            save.write(f"\n################## All:{genre}#################\n")
             for album in self.albumlist:
                 save.write("%s - %s\t%s\n" %
                            (album.band, album.name, album.url))
@@ -208,23 +236,22 @@ class MainWindow(QMainWindow, MessageHandler):
         albums = []
         for child in self.widget.children():
             LOGGER.debug(child)
-            if isinstance(child, QPushButton):
+            if isinstance(child, QToolButton):
                 if child.isChecked():
                     albums.append(child.statusTip())
         genre = ""
         LOGGER.debug(albums)
         for action in self.selectorlist:
             selector = self.toolbar.widgetForAction(action)
-            genre = genre + " " + selector.currentData(0) + " #"
-        with open("save.txt", "a") as save:
-            save.write("\n##################%s#################\n" % genre)
+            genre = f"{genre} {selector.currentData(0)} x"
+        genre = genre.rstrip("x")
+        with open("save.txt", mode="a", encoding="utf-8") as save:
+            save.write(f"\n################## Selection:{genre}#################\n")
             LOGGER.info("Saving to file")
             for metaalbum in albums:
                 for album in self.albumlist:
-                    LOGGER.error("%s\t%s", metaalbum, album.__str__())
                     if metaalbum == album.__str__():
-                        save.write("%s - %s\t%s\n" %
-                                   (album.band, album.name, album.url))
+                        save.write(f"{album.band} - {album.name}\n\t{album.url}\n")
         self.setStatusTip("Selected saved to file!")
 
     def download_selected(self):
@@ -232,7 +259,7 @@ class MainWindow(QMainWindow, MessageHandler):
         albums = []
         for child in self.widget.children():
             LOGGER.debug(child)
-            if isinstance(child, QPushButton):
+            if isinstance(child, QToolButton):
                 if child.isChecked():
                     albums.append(child.statusTip())
         downloadlist = []
@@ -240,8 +267,12 @@ class MainWindow(QMainWindow, MessageHandler):
             for album in self.albumlist:
                 if metaalbum == album.__str__():
                     downloadlist.append(album)
-        self.send(MsgDownloadAlbums(downloadlist))
+        self.messagehandler.send(MsgDownloadAlbums(downloadlist))
         self.setStatusTip("Downloading Albums!")
+
+    def pause_fetch(self):
+        self.send(MsgPause(None))
+        self.setStatusTip("Aborting fetch cycle...")
 
     def quit_application(self):  # implement this
         """ quit """
@@ -271,7 +302,7 @@ class MainWindow(QMainWindow, MessageHandler):
             else:
                 comp.add(selector.currentData(0))
         LOGGER.debug(comp)
-        self.send(MsgPutFetchTags(data=comp))
+        self.messagehandler.send(MsgPutFetchTags(data=comp))
         self.setStatusTip("Fetching Albums...")
         self.update_layout()
 
@@ -310,7 +341,7 @@ class MainWindow(QMainWindow, MessageHandler):
         """ creates a dropdown QComboBox """
         tempcombobox = QComboBox(parent=self)
         tempcombobox.setEditable(True)
-        tempcombobox.setInsertPolicy(3)
+        tempcombobox.setInsertPolicy(QComboBox.InsertPolicy.InsertAtBottom)
         compfilter = QSortFilterProxyModel(tempcombobox)
         compfilter.setFilterCaseSensitivity(Qt.CaseInsensitive)
         compfilter.setFilterKeyColumn(1)
@@ -326,13 +357,19 @@ class MainWindow(QMainWindow, MessageHandler):
     def add_album(self, album):
         """ creates an album button """
         if isinstance(album, Album):
-            btn = QPushButton("Artist: %s\nAlbum: %s" %
-                              (album.band, album.name), None)
-            btn.setStatusTip("%s - %s" % (album.band, album.name))
-            icn = QIcon()  # see ref doc
-            btn.setIcon(icn)
-            btn.setIconSize(QSize(20, 20))
+            btn = QToolButton()
+            btn.setText(f"Artist: {album.band}\nAlbum: {album.name}")
+            btn.setStatusTip(f"{album.band} - {album.name}")
+            if album.cover:
+                pix = QPixmap()
+                pix.loadFromData(album.cover)
+                icn = QIcon(pix)
+                btn.setIcon(icn)
+                btn.setIconSize(QSize(200, 200))
+            btn.setMaximumWidth(250)
+            btn.setFixedWidth(250)
             btn.setCheckable(True)
+            btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
             LOGGER.debug("Adding Album %s", album.name)
             self.btnlist.append(btn)
         else:
@@ -370,12 +407,11 @@ class MainWindow(QMainWindow, MessageHandler):
 
     def msgcapture(self):
         """ RUN """
-        self.analyze(self.recieve())
+        self.analyze(self.messagehandler.recieve())
 
     def analyze(self, msg):
         """ generic "callback" to check msgs and set flags and call functions """
-        if msg is not None:
-            LOGGER.info("Received Msg: %s in Q: %s", msg, self.queue)
+        if msg:
             if isinstance(msg, MsgPutTags):
                 self.store_tags_from_msg(msg)
                 self.finalize_init()
@@ -384,12 +420,12 @@ class MainWindow(QMainWindow, MessageHandler):
             elif isinstance(msg, MsgFinishedDownloads):
                 self.show_download_finished()
             else:
-                LOGGER.error("Unknown Message:\n%s", msg)
+                LOGGER.error(f"Unknown Message:\n{msg}")
 
     def store_tags_from_msg(self, msg):
         """ stores default tags from msg """
         if msg.data is not None:
-            self.genrelist = sorted(msg.data)
+            self.genrelist = msg.data
 
 
 ############################################## End Logikz #####################################################
@@ -398,7 +434,8 @@ def __main__():
     """ main """
     app = QApplication(sys.argv)
     window = MainWindow()
-    sys.exit(app.exec_())
+    window.show()
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":
