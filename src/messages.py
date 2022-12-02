@@ -2,7 +2,6 @@
 
 # give this bic boii a gud think
 
-
 class Msg():
     """ Base Class for all Msg-Types """
 
