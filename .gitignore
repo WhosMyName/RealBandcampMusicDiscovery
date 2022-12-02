@@ -101,8 +101,14 @@ venv.bak/
 # mkdocs documentation
 /site
 
+# mypy
+.mypy_cache/
+
 # save file
 src/save.txt
 
-# mypy
-.mypy_cache/
+# Albums
+Albums/
+
+# Logs
+logs/
