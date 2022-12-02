@@ -1,2 +1,4 @@
 requests
-python-qt5
+PySide6
+PyInstaller
+pyinstaller-hooks-contrib
