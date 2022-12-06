@@ -86,7 +86,7 @@ class MainWindow(QMainWindow):
         """ injection func for closing ther window """
         # display "shutting down..." window
         self.messagehandler.send(MsgQuit(None))
-        LOGGER.debug("Close event:\n%s", event)
+        LOGGER.debug(f"Close event:\n{event}")
         self.__del__()
 
 
@@ -203,8 +203,7 @@ class MainWindow(QMainWindow):
         with open("save.txt", "a") as save:
             save.write(f"\n################## All:{genre}#################\n")
             for album in self.albumlist:
-                save.write("%s - %s\t%s\n" %
-                           (album.band, album.name, album.url))
+                save.write(f"{album.band} - {album.name}\t{album.url}\n")
         self.setStatusTip("Data saved to file!")
 
     @safety_wrapper
@@ -302,7 +301,7 @@ class MainWindow(QMainWindow):
         for album in self.albumlist:
             if comp.issubset(album.genre):
                 compareset.add(album)
-                LOGGER.debug("Added %s after comparison", album.name)
+                LOGGER.debug(f"Added {album.name} after comparison")
         self.albumlist = compareset
         self.update_layout()
         self.setStatusTip("Comparison done!")
@@ -356,10 +355,10 @@ class MainWindow(QMainWindow):
             btn.setFixedWidth(250)
             btn.setCheckable(True)
             btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
-            LOGGER.debug("Adding Album %s", album.name)
+            LOGGER.debug(f"Adding Album {album.name}")
             self.btnlist.append(btn)
         else:
-            LOGGER.error("Wanted to add %s, but it's not an Album", album)
+            LOGGER.error(f"Wanted to add {album}, but it's not an Album")
 
     @safety_wrapper
     def clear_layout(self):

@@ -116,7 +116,7 @@ class Connector(multiprocessing.Process):
     @safety_wrapper
     def update_album_metadata(self, album: Album):  # get pictures too
         """ func that grabs+parses album metadata """
-        LOGGER.debug("Updating Tags for %s", album.name)
+        LOGGER.debug(f"Updating Tags for {album.name}")
         resp = self.session.get(album.url)
         album.genre = parse_album_metadata(
             resp.text.split("\n"))
@@ -161,7 +161,7 @@ class Connector(multiprocessing.Process):
             elif isinstance(msg, MsgPause):
                 self.pause_fetch.set()
             else:
-                LOGGER.error("Unknown Message:\n%s", msg)
+                LOGGER.error(f"Unknown Message:\n{msg}")
 
     @safety_wrapper
     def run(self):
@@ -170,6 +170,8 @@ class Connector(multiprocessing.Process):
         self.executor: cf.ThreadPoolExecutor = cf.ThreadPoolExecutor(max_workers=15)
         self.messagehandler = MessageHandler(self.connectionParams, isClient=True)
         while not self.stop:
+            if not self.messagehandler: # if the messagehandler "disappers", expect the connection to be lost/the other side crashed/closed forcefully
+                self.__del__() # and close this to prevent this process running indefinetely in the background
             self.analyze(self.messagehandler.recieve())
             if self.get_genres_event.is_set():
                 self.get_genres()

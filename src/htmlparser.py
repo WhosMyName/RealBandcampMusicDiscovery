@@ -17,7 +17,7 @@ def parse_tags(data):
     for line in data:
         if "class=\"tag size" in line:
             tag = line.split("/tag/")[1].split("\" ")[0]
-            #LOGGER.debug("Found Tag: %s" % tag)
+            #LOGGER.debug(f"Found Tag: {tag}")
             if tag != "":
                 tagset.add(tag)
     taglist = sorted(tagset)
@@ -66,7 +66,7 @@ def parse_maxpages(data):
             page = int(line.split("\">")[1].split("</a>")[0])
             if page > maxpages:
                 maxpages = page
-    LOGGER.debug("Maxpages: %s", maxpages)
+    LOGGER.debug(f"Maxpages: {maxpages}")
     return maxpages
 
 @safety_wrapper
@@ -77,7 +77,7 @@ def parse_album_metadata(data): #grab all metadata
     for line in data:
         if "class=\"tag\" href=" in line:
             genre = line.split("/tag/")[1].split("?")[0]
-            LOGGER.debug("Found Genre: %s", genre)
+            LOGGER.debug(f"Found Genre: {genre}")
             genrelist.add(genre)
     return genrelist
 
