@@ -12,7 +12,7 @@ LOGGER = HLogger(name="rbmd.htmlparser")
 @safety_wrapper
 def parse_tags(data):
     """ simple func for parsing bandcamps "default" tags """
-    LOGGER.info("Parsing Tags")
+    LOGGER.debug("Parsing Tags")
     tagset = set()
     for line in data:
         if "class=\"tag size" in line:
@@ -27,7 +27,7 @@ def parse_tags(data):
 @safety_wrapper
 def parse_albums(data):
     """ func that does the basic album parsing"""
-    LOGGER.info("Parsing Albums")
+    LOGGER.debug("Parsing Albums")
     albumlist = set()
     albool = False
 
