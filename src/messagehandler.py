@@ -45,15 +45,23 @@ class MessageHandler(Thread):
     @safety_wrapper
     def send(self, msg):
         """ sets metadata and sends the message """
-        if self.connection:
-            LOGGER.debug(f"{self.__class__.__name__} sent: {msg}")
-            return self.connection.send(msg)
+        try:
+            if self.connection:
+                LOGGER.debug(f"{self.__class__.__name__} sent: {msg}")
+                return self.connection.send(msg)
+        except ConnectionError as excp:
+            LOGGER.exception(excp)
+            self.__del__()
 
     @safety_wrapper
     def recieve(self):
         """ pulls message from socket connection """
-        if self.connection and self.connection.poll(0.1):
-            return self.connection.recv()
+        try:
+            if self.connection and self.connection.poll(0.1):
+                return self.connection.recv()
+        except ConnectionError as excp:
+            LOGGER.exception(excp)
+            self.__del__()
 
     @safety_wrapper
     def isConnected(self):
