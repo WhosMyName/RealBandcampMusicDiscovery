@@ -17,7 +17,7 @@ CWD = f"{path.dirname(path.realpath(__file__))}{PATHSEP}"
 LOG_FORMAT = "%(asctime)-15s | %(levelname)s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(message)s"
 class HLogger(logging.Logger):
     
-    def __init__(self, name, level=logging.INFO):
+    def __init__(self, name, level=logging.DEBUG):
         super().__init__(name=name, level=level)
         self.strmhndlr = logging.StreamHandler(stream=sys.stdout)
         self.strmhndlr.setLevel(logging.INFO)
