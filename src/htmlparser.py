@@ -1,42 +1,15 @@
 """ utils to allow easy parsing in seperate thread(s) """
 
-import sys
-import logging
 import json
 from html import unescape
-from os import name as os_name
-
-if os_name == "nt":
-    SLASH = "\\"
-else:
-    SLASH = "/"
+from re import sub as re_sub
 
 from album import Album
+from helpers import safety_wrapper, HLogger
 
-LOGGER = logging.getLogger('rbmd.htmlparser')
-LOG_FORMAT = "%(asctime)-15s | %(levelname)s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(message)s"
-LOGGER.setLevel(logging.DEBUG)
-STRMHDLR = logging.StreamHandler(stream=sys.stdout)
-STRMHDLR.setLevel(logging.INFO)
-STRMHDLR.setFormatter(logging.Formatter(LOG_FORMAT))
-FLHDLR = logging.FileHandler(f"..{SLASH}logs{SLASH}error.log", mode="a", encoding="utf-8", delay=False)
-FLHDLR.setLevel(logging.DEBUG)
-FLHDLR.setFormatter(logging.Formatter(LOG_FORMAT))
-LOGGER.addHandler(STRMHDLR)
-LOGGER.addHandler(FLHDLR)
-def uncaught_exceptions(exc_type, exc_val, exc_trace):
-    """ injected function to log exceptions """
-    import traceback
-    if exc_type is None and exc_val is None and exc_trace is None:
-        exc_type, exc_val, exc_trace = sys.exc_info()
-    LOGGER.exception("Uncaught Exception of type %s was caught: %s\nTraceback:\n%s", exc_type, exc_val, traceback.print_tb(exc_trace))
-    try:
-        del exc_type, exc_val, exc_trace
-    except Exception as excp:
-        LOGGER.exception("Exception caught during tb arg deletion:\n%s", excp)
-sys.excepthook = uncaught_exceptions
+LOGGER = HLogger(name="rbmd.htmlparser")
 
-
+@safety_wrapper
 def parse_tags(data):
     """ simple func for parsing bandcamps "default" tags """
     LOGGER.info("Parsing Tags")
@@ -51,7 +24,7 @@ def parse_tags(data):
     taglist.append("None")
     return taglist
 
-
+@safety_wrapper
 def parse_albums(data):
     """ func that does the basic album parsing"""
     LOGGER.info("Parsing Albums")
@@ -83,7 +56,7 @@ def parse_albums(data):
     LOGGER.debug("returning to connector")
     return albumlist
 
-
+@safety_wrapper
 def parse_maxpages(data):
     """ helper function for maxpages (esp. usefull for tag/genre pages /w < 10 maxpages) """
     LOGGER.debug("Getting Maxpages")
@@ -96,7 +69,7 @@ def parse_maxpages(data):
     LOGGER.debug("Maxpages: %s", maxpages)
     return maxpages
 
-
+@safety_wrapper
 def parse_album_metadata(data): #grab all metadata
     """ parsing metadata (tags, urls, covers, etc...) """
     LOGGER.debug("Parsing Tags")
@@ -108,13 +81,16 @@ def parse_album_metadata(data): #grab all metadata
             genrelist.add(genre)
     return genrelist
 
-
+@safety_wrapper
 def parse_downloadable_tracks(data):
     """ parses songs from album page """
+    content = None
+    danger_chars = "[\/*?:\"<>|~°^]"
     for line in data:
         if "data-tralbum=\"" in line:
             unescaped_line = unescape(line.split("data-tralbum=\"")[1].split("\"")[0])
             content = json.loads(unescaped_line)
-
-    tracklist = [[track['title'], track["file"]["mp3-128"]] for track in content["trackinfo"]]
-    return tracklist
+    if content and "trackinfo" in content.keys():
+        tracklist = [[re_sub(danger_chars, "_", track['title']), track["file"]["mp3-128"]] for track in content["trackinfo"]]
+        return tracklist
+    return []
