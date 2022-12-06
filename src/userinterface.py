@@ -234,6 +234,7 @@ class MainWindow(QMainWindow):
     @safety_wrapper
     def download_selected(self):
         """ Downloads selected albums """
+        LOGGER.debug(f"Downloading selected Albums")
         albums = []
         for child in self.widget.children():
             if isinstance(child, QToolButton):
@@ -249,7 +250,7 @@ class MainWindow(QMainWindow):
 
     @safety_wrapper
     def pause_fetch(self):
-        self.send(MsgPause(None))
+        self.messagehandler.send(MsgPause(None))
         self.setStatusTip("Aborting fetch cycle...")
 
     @safety_wrapper
