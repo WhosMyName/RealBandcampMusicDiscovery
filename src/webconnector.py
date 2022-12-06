@@ -1,63 +1,28 @@
 """ request beast, parsing monster, a core at it's best """
 import multiprocessing
 from time import sleep
-import logging
-import sys
 import concurrent.futures as cf
 import os
+from re import sub as re_sub
 #import sqlite3
 
 import requests
 
+from helpers import safety_wrapper, HLogger, PATHSEP, CWD
 from album import Album
 from messagehandler import MessageHandler
 from htmlparser import parse_album_metadata, parse_albums, parse_maxpages, parse_tags, parse_downloadable_tracks
 from messages import MsgGetTags, MsgPutAlbums, MsgPutFetchTags, MsgPutTags, MsgDownloadAlbums, MsgFinishedDownloads, MsgPause, MsgQuit
 
-from os import name as os_name
-
-if os_name == "nt":
-    SLASH = "\\"
-else:
-    SLASH = "/"
-
-CWD = os.path.dirname(os.path.realpath(__file__)) + SLASH
-DOWNLOADLOCATION = CWD + ".." + SLASH + "Albums" + SLASH
-
-LOGGER = logging.getLogger('rbmd.webconnector')
-LOG_FORMAT = "%(asctime)-15s | %(levelname)s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(message)s"
-LOGGER.setLevel(logging.DEBUG)
-STRMHDLR = logging.StreamHandler(stream=sys.stdout)
-STRMHDLR.setLevel(logging.INFO)
-STRMHDLR.setFormatter(logging.Formatter(LOG_FORMAT))
-FLHDLR = logging.FileHandler(f"..{SLASH}logs{SLASH}error.log", mode="a", encoding="utf-8", delay=False)
-FLHDLR.setLevel(logging.DEBUG)
-FLHDLR.setFormatter(logging.Formatter(LOG_FORMAT))
-LOGGER.addHandler(STRMHDLR)
-LOGGER.addHandler(FLHDLR)
-
-
-def uncaught_exceptions(exc_type, exc_val, exc_trace):
-    """ injected function to log exceptions """
-    import traceback
-    if exc_type is None and exc_val is None and exc_trace is None:
-        exc_type, exc_val, exc_trace = sys.exc_info()
-    LOGGER.exception("Uncaught Exception of type %s was caught: %s\nTraceback:\n%s",
-                     exc_type, exc_val, traceback.print_tb(exc_trace))
-    try:
-        del exc_type, exc_val, exc_trace
-    except Exception as excp:
-        LOGGER.exception("Exception caught during tb arg deletion:\n%s", excp)
-
-
-sys.excepthook = uncaught_exceptions
-
+DOWNLOADLOCATION = f"{CWD}Albums{PATHSEP}"
+LOGGER = HLogger(name="rbmd.webcon")
 
 class Connector(multiprocessing.Process):
     """ Connector Class """
 
     # pylint: disable=too-many-instance-attributes
 
+    @safety_wrapper
     def __init__(self, connectionParams: dict):
         """ init init init """
         multiprocessing.Process.__init__(self)
@@ -73,10 +38,11 @@ class Connector(multiprocessing.Process):
         self.taglist = set()
         self.stop: bool = False
         self.session: requests.Session = requests.Session()
-        self.session.headers.update({"User-Agent": "Mozilla/5.0 (Android 12; Mobile; rv:97.0) Gecko/97.0 Firefox/97.0",})
+        self.session.headers.update({"User-Agent": "Mozilla/5.0 (Android 12; Mobile; rv:97.0) Gecko/97.0 Firefox/97.0"})
         self.apiurl: str = "https://bandcamp.com/tag/%s?page=%s"  # tag, pagenum
         self.start()
 
+    @safety_wrapper
     def __del__(self):
         """ delet dis """
         if self.messagehandler:
@@ -85,33 +51,39 @@ class Connector(multiprocessing.Process):
             self.executor.shutdown()
         self.stop = True
 
+    @safety_wrapper
     def download_file(self, srcfile, srcurl):
         """Function to Downloadad and verify downloaded Files"""
-        if not os.path.isfile(srcfile):
-            LOGGER.debug("Downloading %s as %s", srcurl, srcfile)
-            with open(srcfile, "wb") as fifo:#open in binary write mode
-                response = self.session.get(srcurl)#get request
-                fifo.write(response.content)#write to file
+        if not os.path.exists(srcfile):
+            LOGGER.debug(f"Downloading {srcurl} as {srcfile}")
+            try:
+                response = self.session.get(srcurl) # get request
+                with open(srcfile, "wb") as fifo: # open in binary write mode
+                    fifo.write(response.content) # write to file
+            except FileNotFoundError as excp:
+                LOGGER.exception(f"{excp}\nTried to download {srcfile}")
 
+    @safety_wrapper
     def get_genres(self):
         """ func to request + parse bandcamps default tags """
         self.get_genres_event.clear()
-        LOGGER.info("Obtaining Tags")
+        LOGGER.debug("Obtaining Tags")
         resp = self.session.get("https://bandcamp.com/tags")
-        LOGGER.debug(resp.text)
         tags = parse_tags(resp.text.split("\n"))
         self.messagehandler.send(MsgPutTags(data=tags))
-        LOGGER.info("Msg sent")
+        LOGGER.debug("Msg sent")
 
+    @safety_wrapper
     def get_fetch_tags(self, msg):
         """ updates the list of tags that need to be fetched during current/next iteration """
         self.taglist = set(msg.data)
-        LOGGER.info("got tags from Msg %s", self.taglist)
+        LOGGER.debug(f"got tags from Msg {self.taglist}")
         self.get_albums_event.set()
 
+    @safety_wrapper
     def get_albums(self):
         """ func grabs albums based on fetch-tags, parses and adds sprinkles of metadata on them """
-        LOGGER.info("Getting Albums for Tags: %s", self.taglist)
+        LOGGER.debug(f"Getting Albums for Tags: {self.taglist}")
         self.get_albums_event.clear()
         for tag in self.taglist:
             # check albums from db
@@ -131,16 +103,17 @@ class Connector(multiprocessing.Process):
                             future.result()
                         except Exception as excp:
                             LOGGER.exception(
-                                "%s has thrown Exception:\n%s", supposed_album, excp)
+                                f"{supposed_album} has thrown Exception:\n{excp}")
                     albumdata = {tag: albums}
                     self.messagehandler.send(MsgPutAlbums(data=albumdata))
-                    LOGGER.debug("%s", albums)
+                    LOGGER.debug(f"{albums}")
                     # add albums to db
                 else:
                     sleep(2)
                     return None
         return None
 
+    @safety_wrapper
     def update_album_metadata(self, album: Album):  # get pictures too
         """ func that grabs+parses album metadata """
         LOGGER.debug("Updating Tags for %s", album.name)
@@ -155,24 +128,25 @@ class Connector(multiprocessing.Process):
     #    """ func to smartly insert new albums into db """
     #    pass
 
+    @safety_wrapper
     def download_albums(self, msg):
         """ downloads all albums from message """
         albumlist = msg.get_data()
+        danger_chars = "[\/*?:\"<>|~°^]"
         for album in albumlist:
-            location = DOWNLOADLOCATION + album.__str__() + SLASH
+            location = DOWNLOADLOCATION + re_sub(danger_chars, "_", album.__str__()) + PATHSEP
             if not os.path.exists(location):
                 os.makedirs(location)
+            if album.cover:
+                with open(f"{location}cover.jpg", "w+b") as cover:
+                    cover.write(album.cover)
             resp = self.session.get(album.url)
             tracklist = parse_downloadable_tracks(resp.text.split("\n"))
             for track in tracklist:
                 self.download_file(f"{location}{track[0]}.mp3", track[1])
-            if album.cover["data"]:
-                with open(f"{location}cover.jpg", "w+b") as cover:
-                    album.cover["data"].seek(0)
-                    cover.write(album.cover["data"].read())
         self.messagehandler.send(MsgFinishedDownloads(None))
 
-
+    @safety_wrapper
     def analyze(self, msg):
         """ generic "callback" to check msgs and set flags and call functions """
         if msg is not None:
@@ -189,12 +163,12 @@ class Connector(multiprocessing.Process):
             else:
                 LOGGER.error("Unknown Message:\n%s", msg)
 
+    @safety_wrapper
     def run(self):
         """ RUN! """
         # little hack the avoids pickling a queue when forking ;)
         self.executor: cf.ThreadPoolExecutor = cf.ThreadPoolExecutor(max_workers=15)
         self.messagehandler = MessageHandler(self.connectionParams, isClient=True)
-        LOGGER.info(f"Creating handler {self.messagehandler}")
         while not self.stop:
             self.analyze(self.messagehandler.recieve())
             if self.get_genres_event.is_set():
@@ -202,17 +176,3 @@ class Connector(multiprocessing.Process):
             elif self.get_albums_event.is_set():
                 self.get_albums()
             sleep(0.1)
-
-
-def __main__():
-    """ basic testing main func """
-    conn = Connector()
-    # conn.start()
-    #conn.get_genres()
-    conn.taglist.add("metal")
-    conn.get_albums()
-    conn.__del__()
-
-
-if __name__ == "__main__":
-    __main__()
