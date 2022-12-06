@@ -57,7 +57,7 @@ class MessageHandler(Thread):
     def recieve(self):
         """ pulls message from socket connection """
         try:
-            if self.connection and self.connection.poll(0.1):
+            if self.connection and not self.connection.closed and self.connection.poll(0.1):
                 return self.connection.recv()
         except ConnectionError as excp:
             LOGGER.exception(excp)
