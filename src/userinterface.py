@@ -212,7 +212,7 @@ class MainWindow(QMainWindow):
         """ saves current albums with tags to file """
         albums = []
         for child in self.widget.children():
-            LOGGER.debug(child)
+            #LOGGER.debug(child)
             if isinstance(child, QToolButton):
                 if child.isChecked():
                     albums.append(child.statusTip())
