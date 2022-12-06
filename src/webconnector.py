@@ -131,7 +131,7 @@ class Connector(multiprocessing.Process):
     def download_albums(self, msg):
         """ downloads all albums from message """
         albumlist = msg.get_data()
-        danger_chars = "[\/*?:\"<>|~°^]"
+        danger_chars = "[\/*?:\"<>|~°^.]"
         for album in albumlist:
             location = f"Albums{PATHSEP}{re_sub(danger_chars, '_', album.__str__())}{PATHSEP}"
             if not os.path.exists(location):

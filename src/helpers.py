@@ -25,7 +25,7 @@ class HLogger(logging.Logger):
         self.addHandler(self.strmhndlr)
         loggingPath = f"logs{PATHSEP}"
         loggingFile = f"{loggingPath}error.log"
-        if not path.exists(loggingFile):
+        if not path.exists(loggingPath):
             makedirs(loggingPath)
         self.flhndlr = logging.FileHandler(filename=loggingFile, mode="a", encoding="utf-8", delay=False)
         self.flhndlr.setLevel(logging.DEBUG)
