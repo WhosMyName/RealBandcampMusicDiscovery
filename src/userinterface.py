@@ -2,60 +2,28 @@
 
 import sys
 from math import ceil
-import logging
-from os import name as os_name
 from hashlib import sha256
 from datetime import datetime
+from multiprocessing import freeze_support
 
-if os_name == "nt":
-    SLASH = "\\"
-else:
-    SLASH = "/"
 
 from PySide6.QtWidgets import QMainWindow, QGridLayout, QLayout, QWidget, QMessageBox, QComboBox, QCompleter, QToolButton, QApplication, QScrollArea
 from PySide6.QtCore import QTimer, QRect, QSortFilterProxyModel, QSize, Qt
 from PySide6.QtGui import QIcon, QAction, QPixmap
 
+from helpers import safety_wrapper, HLogger
 from album import Album
 from webconnector import Connector
 from messages import MsgGetTags, MsgPutFetchTags, MsgPutTags, MsgPutAlbums, MsgDownloadAlbums, MsgFinishedDownloads, MsgPause, MsgQuit
 from messagehandler import MessageHandler
 
-
-LOGGER = logging.getLogger('rbmd.ui')
-LOG_FORMAT = "%(asctime)-15s | %(levelname)s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(message)s"
-LOGGER.setLevel(logging.DEBUG)
-STRMHDLR = logging.StreamHandler(stream=sys.stdout)
-STRMHDLR.setLevel(logging.INFO)
-STRMHDLR.setFormatter(logging.Formatter(LOG_FORMAT))
-FLHDLR = logging.FileHandler(f"..{SLASH}logs{SLASH}error.log", mode="a", encoding="utf-8", delay=False)
-FLHDLR.setLevel(logging.DEBUG)
-FLHDLR.setFormatter(logging.Formatter(LOG_FORMAT))
-LOGGER.addHandler(STRMHDLR)
-LOGGER.addHandler(FLHDLR)
-
-
-def uncaught_exceptions(exc_type, exc_val, exc_trace):
-    """ injected function to log exceptions """
-    import traceback
-    if exc_type is None and exc_val is None and exc_trace is None:
-        exc_type, exc_val, exc_trace = sys.exc_info()
-    LOGGER.exception("Uncaught Exception of type %s was caught: %s\nTraceback:\n%s",
-                     exc_type, exc_val, traceback.print_tb(exc_trace))
-    try:
-        del exc_type, exc_val, exc_trace
-    except Exception as excp:
-        LOGGER.exception("Exception caught during tb arg deletion:\n%s", excp)
-
-
-sys.excepthook = uncaught_exceptions
-
+LOGGER = HLogger(name="rbmd.ui")
 
 class MainWindow(QMainWindow):
     """ Class that refelcts the "main-window" """
 
     # pylint: disable=too-many-instance-attributes
-
+    @safety_wrapper
     def __init__(self):
         """ init """
         super().__init__()
@@ -63,7 +31,7 @@ class MainWindow(QMainWindow):
         authkey = bytes(sha256(str(datetime.now()).encode()).hexdigest(), encoding="utf-8")
         connParams = {"address": "127.0.0.1", "port": port, "key": authkey}
         self.messagehandler = MessageHandler(connParams)
-        LOGGER.info(f"Self: {self}")
+        LOGGER.debug(f"Self: {self}")
 
         self.connector = Connector(connectionParams=connParams)
 
@@ -74,7 +42,7 @@ class MainWindow(QMainWindow):
         self.layout = QGridLayout()
         self.layout.setSizeConstraint(QLayout.SetMinimumSize)
         self.widget = QWidget()
-        self.widget.setMinimumSize(800, 650)
+        self.widget.setMinimumSize(800, 700)
         self.widget.setLayout(self.layout)
 
         self.scroll_area = QScrollArea()
@@ -106,12 +74,14 @@ class MainWindow(QMainWindow):
         self.msgbox = QMessageBox(self)
         self.msgbox.setText("Initializing...")
         self.msgbox.show()
-        LOGGER.info(f"Init done...")
+        LOGGER.debug(f"Init done...")
 
+    @safety_wrapper
     def __del__(self):
         """ del """
         self.messagehandler.__del__()
 
+    @safety_wrapper
     def close(self, event):
         """ injection func for closing ther window """
         # display "shutting down..." window
@@ -122,12 +92,14 @@ class MainWindow(QMainWindow):
 
 ############################################## QWindow Props ##################################################
 
+    @safety_wrapper
     def getTags(self):
         """"""
         if self.messagehandler.isConnected():
             self.messagehandler.send(MsgGetTags(None))
             self.tagTimer.setSingleShot(False)
 
+    @safety_wrapper
     def finalize_init(self):
         """ func to handle init finalization """
         self.msgbox.done(0)
@@ -137,16 +109,18 @@ class MainWindow(QMainWindow):
         self.reload.setEnabled(True)
         self.more.setEnabled(True)
         self.setStatusTip("Init done!")
-        LOGGER.info("Init done")
+        LOGGER.debug("Init done")
 
+    @safety_wrapper
     def show_download_finished(self):
         """ quick messagebox to notify user about finished downloads """
         self.msgbox.setText("Finished Downloading!")
         self.msgbox.setStandardButtons(QMessageBox.Ok)
-        self.msgbox.button(QMessageBox.Ok).animateClick(3000)
+        self.msgbox.button(QMessageBox.Ok).animateClick()
         self.msgbox.show()
         self.setStatusTip("Downloads finished...")
 
+    @safety_wrapper
     def init_toolbar(self):
         """ toolbar's init func"""
         self.toolbar = self.addToolBar("Toolbar")
@@ -156,21 +130,22 @@ class MainWindow(QMainWindow):
         self.clear.setStatusTip("Clear All")
         self.clear.setEnabled(False)
 
-        self.compare = self.toolbar.addAction("compare noods")
+        self.compare = self.toolbar.addAction("Compare")
         self.compare.triggered.connect(self.comparison)
         self.compare.setStatusTip("Compare!")
         self.compare.setEnabled(False)
 
-        self.reload = self.toolbar.addAction("fresh noods")
+        self.reload = self.toolbar.addAction("Refresh")
         self.reload.triggered.connect(self.refresh)
         self.reload.setStatusTip("Apply")
         self.reload.setEnabled(False)
 
-        self.more = self.toolbar.addAction("more noods")
+        self.more = self.toolbar.addAction("Add Selector")
         self.more.triggered.connect(self.add_genre_selector)
         self.more.setStatusTip("Add an additional Selector")
         self.more.setEnabled(False)
 
+    @safety_wrapper
     def init_menu(self):
         """ func that defines menu capabilities """
         self.menu_bar = self.menuBar()
@@ -218,6 +193,7 @@ class MainWindow(QMainWindow):
         self.pause_action.triggered.connect(self.pause_fetch)
         self.menu_bar.addAction(self.pause_action)
 
+    @safety_wrapper
     def save_to_file(self):
         """ saves current albums with tags to file """
         genre = ""
@@ -231,6 +207,7 @@ class MainWindow(QMainWindow):
                            (album.band, album.name, album.url))
         self.setStatusTip("Data saved to file!")
 
+    @safety_wrapper
     def save_selected(self):
         """ saves current albums with tags to file """
         albums = []
@@ -247,18 +224,18 @@ class MainWindow(QMainWindow):
         genre = genre.rstrip("x")
         with open("save.txt", mode="a", encoding="utf-8") as save:
             save.write(f"\n################## Selection:{genre}#################\n")
-            LOGGER.info("Saving to file")
+            LOGGER.debug("Saving to file")
             for metaalbum in albums:
                 for album in self.albumlist:
                     if metaalbum == album.__str__():
                         save.write(f"{album.band} - {album.name}\n\t{album.url}\n")
         self.setStatusTip("Selected saved to file!")
 
+    @safety_wrapper
     def download_selected(self):
         """ Downloads selected albums """
         albums = []
         for child in self.widget.children():
-            LOGGER.debug(child)
             if isinstance(child, QToolButton):
                 if child.isChecked():
                     albums.append(child.statusTip())
@@ -270,14 +247,17 @@ class MainWindow(QMainWindow):
         self.messagehandler.send(MsgDownloadAlbums(downloadlist))
         self.setStatusTip("Downloading Albums!")
 
+    @safety_wrapper
     def pause_fetch(self):
         self.send(MsgPause(None))
         self.setStatusTip("Aborting fetch cycle...")
 
+    @safety_wrapper
     def quit_application(self):  # implement this
         """ quit """
         print("####################################Quit!############################################")
 
+    @safety_wrapper
     def show_help(self):  # implement this
         """ help """
         print("####################################Help!############################################")
@@ -287,9 +267,10 @@ class MainWindow(QMainWindow):
 ########################################## End QWindow Props ##################################################
 ############################################## Logikz #########################################################
 
+    @safety_wrapper
     def refresh(self):
         """ func to grab albums based on current selectors """
-        LOGGER.info("refreshing selection")
+        LOGGER.debug("refreshing selection")
         comp = set()
         for action in self.selectorlist:
             selector = self.toolbar.widgetForAction(action)
@@ -306,6 +287,7 @@ class MainWindow(QMainWindow):
         self.setStatusTip("Fetching Albums...")
         self.update_layout()
 
+    @safety_wrapper
     def comparison(self):
         """ compares based on current selectors """
         self.setStatusTip("Comparing Albums...")
@@ -324,6 +306,7 @@ class MainWindow(QMainWindow):
         self.update_layout()
         self.setStatusTip("Comparison done!")
 
+    @safety_wrapper
     def process_albums(self, msg):
         """ parses albums from msg and distributes them to corresponding structures """
         albumsdict = msg.data
@@ -337,6 +320,7 @@ class MainWindow(QMainWindow):
             self.albumlist.update(value)
         self.update_layout()
 
+    @safety_wrapper
     def add_genre_selector(self):
         """ creates a dropdown QComboBox """
         tempcombobox = QComboBox(parent=self)
@@ -354,6 +338,7 @@ class MainWindow(QMainWindow):
         tempcombobox.addItems(self.genrelist)
         self.selectorlist.append(self.toolbar.addWidget(tempcombobox))
 
+    @safety_wrapper
     def add_album(self, album):
         """ creates an album button """
         if isinstance(album, Album):
@@ -375,14 +360,16 @@ class MainWindow(QMainWindow):
         else:
             LOGGER.error("Wanted to add %s, but it's not an Album", album)
 
+    @safety_wrapper
     def clear_layout(self):
         """ clears current layout """
         self.albumlist = set()
         self.update_layout()
 
+    @safety_wrapper
     def update_layout(self):
         """ refreshes/updates current layout and adds all the albums to the layout """
-        LOGGER.info("Refreshing Layout")
+        LOGGER.debug("Refreshing Layout")
 
         for widget in self.layout.children():
             self.layout.removeWidget(widget)
@@ -405,10 +392,12 @@ class MainWindow(QMainWindow):
         for position, btn in zip(positions, self.btnlist):
             self.layout.addWidget(btn, *position)
 
+    @safety_wrapper
     def msgcapture(self):
         """ RUN """
         self.analyze(self.messagehandler.recieve())
 
+    @safety_wrapper
     def analyze(self, msg):
         """ generic "callback" to check msgs and set flags and call functions """
         if msg:
@@ -422,6 +411,7 @@ class MainWindow(QMainWindow):
             else:
                 LOGGER.error(f"Unknown Message:\n{msg}")
 
+    @safety_wrapper
     def store_tags_from_msg(self, msg):
         """ stores default tags from msg """
         if msg.data is not None:
@@ -439,4 +429,5 @@ def __main__():
 
 
 if __name__ == "__main__":
+    freeze_support()
     __main__()
