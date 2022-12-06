@@ -8,13 +8,12 @@ from re import sub as re_sub
 
 import requests
 
-from helpers import safety_wrapper, HLogger, PATHSEP, CWD
+from helpers import safety_wrapper, HLogger, PATHSEP
 from album import Album
 from messagehandler import MessageHandler
 from htmlparser import parse_album_metadata, parse_albums, parse_maxpages, parse_tags, parse_downloadable_tracks
 from messages import MsgGetTags, MsgPutAlbums, MsgPutFetchTags, MsgPutTags, MsgDownloadAlbums, MsgFinishedDownloads, MsgPause, MsgQuit
 
-DOWNLOADLOCATION = f"{CWD}Albums{PATHSEP}"
 LOGGER = HLogger(name="rbmd.webcon")
 
 class Connector(multiprocessing.Process):
@@ -134,7 +133,7 @@ class Connector(multiprocessing.Process):
         albumlist = msg.get_data()
         danger_chars = "[\/*?:\"<>|~°^]"
         for album in albumlist:
-            location = DOWNLOADLOCATION + re_sub(danger_chars, "_", album.__str__()) + PATHSEP
+            location = f"Albums{PATHSEP}{re_sub(danger_chars, '_', album.__str__())}{PATHSEP}"
             if not os.path.exists(location):
                 os.makedirs(location)
             if album.cover:
