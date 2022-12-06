@@ -37,7 +37,7 @@ class MainWindow(QMainWindow):
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.msgcapture)
-        self.timer.start(100)  
+        # this is started in self.getTags()
 
         self.layout = QGridLayout()
         self.layout.setSizeConstraint(QLayout.SetMinimumSize)
@@ -62,7 +62,7 @@ class MainWindow(QMainWindow):
         
         self.tagTimer = QTimer(self)
         self.tagTimer.timeout.connect(self.getTags)
-        self.tagTimer.setSingleShot(True)
+        self.tagTimer.setSingleShot(False)
         self.tagTimer.start(1000)
         self.closeEvent = self.close
         self.statusBar()
@@ -97,7 +97,8 @@ class MainWindow(QMainWindow):
         """"""
         if self.messagehandler.isConnected():
             self.messagehandler.send(MsgGetTags(None))
-            self.tagTimer.setSingleShot(False)
+            self.tagTimer.setSingleShot(True)
+            self.timer.start(100)  
 
     @safety_wrapper
     def finalize_init(self):
@@ -395,6 +396,8 @@ class MainWindow(QMainWindow):
     @safety_wrapper
     def msgcapture(self):
         """ RUN """
+        if not self.messagehandler:
+            self.__del__()
         self.analyze(self.messagehandler.recieve())
 
     @safety_wrapper
