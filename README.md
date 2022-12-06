@@ -38,7 +38,7 @@ End of Storytime, I got ~~**_really pissed_**~~ *mildly annoyed*, so I decided t
 
 This is for @all, that want to extend their music horizon, without getting punished/infuriated/agitated/exhausted by Bandcamps UI/UX. 
 
-```Using Python3.x+ and PyQt5```
+```Using Python3.x+ and PySide6```
 
 ------------------
 
