@@ -106,7 +106,7 @@ class Connector(multiprocessing.Process):
                                 f"{supposed_album} has thrown Exception:\n{excp}")
                     albumdata = {tag: albums}
                     self.messagehandler.send(MsgPutAlbums(data=albumdata))
-                    LOGGER.debug(f"{albums}")
+                    #LOGGER.debug(f"{albums}")
                     # add albums to db
                 else:
                     sleep(2)
