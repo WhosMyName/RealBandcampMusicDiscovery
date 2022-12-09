@@ -7,6 +7,6 @@ PyInstaller.__main__.run([
     "--noconfirm",
     f"-p=src{PATHSEP}",
     "--additional-hooks-dir=.",
-    "-n RealBandcampMusicDiscovery",
+    "-n=RealBandcampMusicDiscovery",
     "--clean"
 ])
