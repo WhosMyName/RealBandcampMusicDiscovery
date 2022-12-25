@@ -5,7 +5,7 @@ from html import unescape
 from re import sub as re_sub
 
 from album import Album
-from helpers import safety_wrapper, HLogger
+from helpers import safety_wrapper, HLogger, DANGER_CHARS
 
 LOGGER = HLogger(name="rbmd.htmlparser")
 
@@ -13,48 +13,49 @@ LOGGER = HLogger(name="rbmd.htmlparser")
 def parse_tags(data):
     """ simple func for parsing bandcamps "default" tags """
     LOGGER.debug("Parsing Tags")
-    tagset = set()
+    tagset: set = set() # create our storage [set becuase we don't want any duplicates]
     for line in data:
         if "class=\"tag size" in line:
-            tag = line.split("/tag/")[1].split("\" ")[0]
+            tag: str = line.split("/tag/")[1].split("\" ")[0]
             #LOGGER.debug(f"Found Tag: {tag}")
-            if tag != "":
+            if tag != "": # check if parsed correctly and not empty
                 tagset.add(tag)
-    taglist = sorted(tagset)
-    taglist.append("None")
+    taglist: list = sorted(tagset) # sort the set and return as list
+    taglist.insert(0, "None") # add removal value as first value
     return taglist
 
 @safety_wrapper
 def parse_albums(data):
     """ func that does the basic album parsing"""
     LOGGER.debug("Parsing Albums")
-    albumlist = set()
-    albool = False
+    albumset: set = set() 
+    albool: bool = False
 
-    name = ""
-    url = ""
-    band = ""
-    cover_url = ""
+    # define vars for albums data
+    name: str = ""
+    url: str = ""
+    band: str = ""
+    cover_url: str = ""
 
     for line in data:
-        if "item_list" in line and not albool:
+        if "item_list" in line and not albool: # check if we're in the range of parsable albums
             albool = True
         elif "<a href=" in line and albool:
-            url = line.split("<a href=\"")[1].split("\" title")[0]
-            name = line.split("title=\"")[1].split("\">")[0]
-            if " by " in name:
+            url = line.split("<a href=\"")[1].split("\" title")[0] # parse albums url
+            name = line.split("title=\"")[1].split("\">")[0] # parse albums name
+            if " by " in name: # modify the naming as we don't need XXX by XZY album names
                 name = name.split(" by ")[0]
         elif "<img class=\"art" in line and albool:
-            cover_url = line.split("src=\"")[1].split("\" alt")[0]
+            cover_url = line.split("src=\"")[1].split("\" alt")[0] # parse the cover url
         elif "<div class=\"itemsubtext" in line and albool:
-            band = unescape(line.split("\">")[1].split("</")[0])
-            alb = Album(name, url, band, cover_url)
-            LOGGER.debug(alb)
-            albumlist.add(alb)
-        elif "<div class=\"pager_" in line:
+            band = unescape(line.split("\">")[1].split("</")[0]) # parse the interprets name
+            alb = Album(name, url, band, cover_url) # create the album object
+            #LOGGER.debug(alb)
+            albumset.add(alb) # add allbum to list
+        elif "<div class=\"pager_" in line: # reset parsing check bool
             albool = False
     LOGGER.debug("returning to connector")
-    return albumlist
+    return albumset
 
 @safety_wrapper
 def parse_maxpages(data):
@@ -85,12 +86,11 @@ def parse_album_metadata(data): #grab all metadata
 def parse_downloadable_tracks(data):
     """ parses songs from album page """
     content = None
-    danger_chars = "[\/*?:\"<>|~°^]"
     for line in data:
         if "data-tralbum=\"" in line:
             unescaped_line = unescape(line.split("data-tralbum=\"")[1].split("\"")[0])
             content = json.loads(unescaped_line)
     if content and "trackinfo" in content.keys():
-        tracklist = [[re_sub(danger_chars, "_", track['title']), track["file"]["mp3-128"]] for track in content["trackinfo"]]
+        tracklist = [[re_sub(DANGER_CHARS, "_", track['title']), track["file"]["mp3-128"]] for track in content["trackinfo"]]
         return tracklist
     return []
