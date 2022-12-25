@@ -10,7 +10,7 @@ from helpers import safety_wrapper, HLogger, DANGER_CHARS
 LOGGER = HLogger(name="rbmd.htmlparser")
 
 @safety_wrapper
-def parse_tags(data):
+def parse_tags(data) -> list:
     """ simple func for parsing bandcamps "default" tags """
     LOGGER.debug("Parsing Tags")
     tagset: set = set() # create our storage [set becuase we don't want any duplicates]
@@ -25,7 +25,7 @@ def parse_tags(data):
     return taglist
 
 @safety_wrapper
-def parse_albums(data):
+def parse_albums(data) -> set:
     """ func that does the basic album parsing"""
     LOGGER.debug("Parsing Albums")
     albumset: set = set() 
@@ -58,10 +58,10 @@ def parse_albums(data):
     return albumset
 
 @safety_wrapper
-def parse_maxpages(data):
+def parse_maxpages(data) -> int:
     """ helper function for maxpages (esp. usefull for tag/genre pages /w < 10 maxpages) """
     LOGGER.debug("Getting Maxpages")
-    maxpages = 0
+    maxpages: int = 0
     for line in data:
         if "pagenum round4" in line:
             page = int(line.split("\">")[1].split("</a>")[0])
@@ -71,26 +71,26 @@ def parse_maxpages(data):
     return maxpages
 
 @safety_wrapper
-def parse_album_metadata(data): #grab all metadata
+def parse_album_metadata(data) -> set: #grab all metadata
     """ parsing metadata (tags, urls, covers, etc...) """
     LOGGER.debug("Parsing Tags")
-    genrelist = set()
+    genrelist: set = set()
     for line in data:
         if "class=\"tag\" href=" in line:
-            genre = line.split("/tag/")[1].split("?")[0]
+            genre: str = line.split("/tag/")[1].split("?")[0]
             LOGGER.debug(f"Found Genre: {genre}")
             genrelist.add(genre)
     return genrelist
 
 @safety_wrapper
-def parse_downloadable_tracks(data):
+def parse_downloadable_tracks(data) -> list:
     """ parses songs from album page """
-    content = None
+    content: str = None
     for line in data:
         if "data-tralbum=\"" in line:
-            unescaped_line = unescape(line.split("data-tralbum=\"")[1].split("\"")[0])
-            content = json.loads(unescaped_line)
+            unescaped_line: str = unescape(line.split("data-tralbum=\"")[1].split("\"")[0])
+            content: str = json.loads(unescaped_line)
     if content and "trackinfo" in content.keys():
-        tracklist = [[re_sub(DANGER_CHARS, "_", track['title']), track["file"]["mp3-128"]] for track in content["trackinfo"]]
+        tracklist: list = [[re_sub(DANGER_CHARS, "_", track['title']), track["file"]["mp3-128"]] for track in content["trackinfo"]]
         return tracklist
     return []
