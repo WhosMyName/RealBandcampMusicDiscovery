@@ -26,26 +26,26 @@ class HLogger(logging.Logger):
     
     def __init__(self, name, level=logging.DEBUG):
         super().__init__(name=name, level=level)
-        self.strmhndlr = logging.StreamHandler(stream=sys.stdout)
-        self.strmhndlr.setLevel(logging.INFO)
-        self.strmhndlr.setFormatter(logging.Formatter(LOG_FORMAT))
-        self.addHandler(self.strmhndlr)
         loggingPath = f"logs{PATHSEP}"
         loggingFile = f"{loggingPath}error.log"
         if not path.exists(loggingPath):
             makedirs(loggingPath)
-        self.flhndlr = logging.FileHandler(filename=loggingFile, mode="a", encoding="utf-8", delay=False)
+        self.strmhndlr: logging.StreamHandler = logging.StreamHandler(stream=sys.stdout)
+        self.strmhndlr.setLevel(logging.INFO)
+        self.strmhndlr.setFormatter(logging.Formatter(LOG_FORMAT))
+        self.addHandler(self.strmhndlr)
+        self.flhndlr: logging.FileHandler = logging.FileHandler(filename=loggingFile, mode="a", encoding="utf-8", delay=False)
         self.flhndlr.setLevel(logging.DEBUG)
         self.flhndlr.setFormatter(logging.Formatter(LOG_FORMAT))
         self.addHandler(self.flhndlr)
 
-    def setFileHandlerLevel(self, level: int = logging.INFO):
+    def set_file_handler_level(self, level: int = logging.INFO):
         self.flhndlr.setLevel(level=level)
 
-    def setStreamHandlerLevel(self, level: int = logging.INFO):
+    def set_stream_handler_level(self, level: int = logging.INFO):
         self.strmhndlr.setLevel(level=level)
 
-    def setLogLocation(self, filename: str):
+    def set_log_location(self, filename: str):
         logLevel = self.flhndlr.level
         encoding = self.flhndlr.encoding
         mode = self.flhndlr.mode
