@@ -8,11 +8,11 @@ from re import sub as re_sub
 
 import requests
 
-from helpers import safety_wrapper, HLogger, PATHSEP
+from helpers import safety_wrapper, HLogger, PATHSEP, DANGER_CHARS
 from album import Album
 from messagehandler import MessageHandler
 from htmlparser import parse_album_metadata, parse_albums, parse_maxpages, parse_tags, parse_downloadable_tracks
-from messages import MsgGetTags, MsgPutAlbums, MsgPutFetchTags, MsgPutTags, MsgDownloadAlbums, MsgFinishedDownloads, MsgPause, MsgQuit
+from messages import MsgGetTags, MsgPutAlbums, MsgPutFetchTags, MsgPutTags, MsgDownloadAlbums, MsgFinishedDownloads, MsgPause, MsgSetProgress, MsgQuit
 
 LOGGER = HLogger(name="rbmd.webcon")
 
@@ -29,6 +29,7 @@ class Connector(multiprocessing.Process):
         self.messagehandler = None
         self.connectionParams = connectionParams
 
+        # TODO: optimize the events away # maybe except pause event
         self.get_genres_event = multiprocessing.Event()
         self.get_albums_event = multiprocessing.Event()
         self.pause_fetch = multiprocessing.Event()
@@ -53,23 +54,23 @@ class Connector(multiprocessing.Process):
     @safety_wrapper
     def download_file(self, srcfile, srcurl):
         """Function to Downloadad and verify downloaded Files"""
-        if not os.path.exists(srcfile):
+        if not os.path.exists(srcfile): # check if file exsists
             LOGGER.debug(f"Downloading {srcurl} as {srcfile}")
             try:
                 response = self.session.get(srcurl) # get request
                 with open(srcfile, "wb") as fifo: # open in binary write mode
                     fifo.write(response.content) # write to file
             except FileNotFoundError as excp:
-                LOGGER.exception(f"{excp}\nTried to download {srcfile}")
+                LOGGER.exception(f"Tried to download {srcfile}:\n{excp}")
 
     @safety_wrapper
     def get_genres(self):
         """ func to request + parse bandcamps default tags """
-        self.get_genres_event.clear()
+        self.get_genres_event.clear() # TODO: optimize for no event
         LOGGER.debug("Obtaining Tags")
-        resp = self.session.get("https://bandcamp.com/tags")
-        tags = parse_tags(resp.text.split("\n"))
-        self.messagehandler.send(MsgPutTags(data=tags))
+        resp = self.session.get("https://bandcamp.com/tags") # fetch all tags from the tags page
+        tags = parse_tags(resp.text.split("\n")) # parse them
+        self.messagehandler.send(MsgPutTags(data=tags)) # return them
         LOGGER.debug("Msg sent")
 
     @safety_wrapper
@@ -84,31 +85,33 @@ class Connector(multiprocessing.Process):
         """ func grabs albums based on fetch-tags, parses and adds sprinkles of metadata on them """
         LOGGER.debug(f"Getting Albums for Tags: {self.taglist}")
         self.get_albums_event.clear()
-        for tag in self.taglist:
+        for tag in self.taglist: # iterate the tags
             # check albums from db
-            resp1 = self.session.get(self.apiurl % (tag, "0"))
+            resp1 = self.session.get(self.apiurl % (tag, "0")) # get the first page of /tag/XXX and parse the maximum pages
             maxpages = parse_maxpages(
                 resp1.text.split("\n"))
-            for num in range(1, maxpages+1):
-                if not self.pause_fetch.is_set():
-                    resp2 = self.session.get(self.apiurl % (tag, num))
+            self.messagehandler.send(MsgSetProgress(0, maxpages, f"{tag}: Fetching Page 0/{maxpages}"))
+            for num in range(1, maxpages+1): # repeat fetching+parsing the tags page
+                if not self.pause_fetch.is_set(): # TODO: should this be a while-loop
+                    resp2 = self.session.get(self.apiurl % (tag, num)) # fetch the current tag page
                     albums = parse_albums(
-                        resp2.text.split("\n"))
-                    future_metadata = {self.executor.submit(
-                        self.update_album_metadata, album): album for album in albums}
-                    for future in cf.as_completed(future_metadata):
+                        resp2.text.split("\n")) # parse the fetched page for albums
+                    future_metadata = {self.executor.submit( # TODO: optimize this
+                        self.update_album_metadata, album): album for album in albums} # add the albums to the threadpool executor
+                    for future in cf.as_completed(future_metadata): # iterate and wait for executor completion
                         supposed_album = future_metadata[future]
                         try:
-                            future.result()
+                            future.result() # check the executors results
                         except Exception as excp:
                             LOGGER.exception(
                                 f"{supposed_album} has thrown Exception:\n{excp}")
-                    albumdata = {tag: albums}
+                    albumdata = {tag: albums} # save the albums in relation to its tags
+                    self.messagehandler.send(MsgSetProgress(num, maxpages, f"{tag}: Fetching Page {num}/{maxpages}"))
                     self.messagehandler.send(MsgPutAlbums(data=albumdata))
                     #LOGGER.debug(f"{albums}")
                     # add albums to db
                 else:
-                    sleep(2)
+                    sleep(1)
                     return None
         return None
 
@@ -116,10 +119,10 @@ class Connector(multiprocessing.Process):
     def update_album_metadata(self, album: Album):  # get pictures too
         """ func that grabs+parses album metadata """
         LOGGER.debug(f"Updating Tags for {album.name}")
-        resp = self.session.get(album.url)
+        resp = self.session.get(album.url) # get the albums linked tags
         album.genre = parse_album_metadata(
             resp.text.split("\n"))
-        resp2 = self.session.get(album.cover_url)
+        resp2 = self.session.get(album.cover_url) # get the albums cover
         album.cover = resp2.content
         return album
 
@@ -130,19 +133,21 @@ class Connector(multiprocessing.Process):
     @safety_wrapper
     def download_albums(self, msg):
         """ downloads all albums from message """
-        albumlist = msg.get_data()
-        danger_chars = "[\/*?:\"<>|~°^]"
+        albumlist: list = msg.get_data()
+        self.messagehandler.send(MsgSetProgress(0, len(albumlist), f"Downloading Album 0/{len(albumlist)}"))
         for album in albumlist:
-            location = f"Albums{PATHSEP}{re_sub(danger_chars, '_', album.__str__()).strip('.')}{PATHSEP}"
-            if not os.path.exists(location):
+            location = f"Albums{PATHSEP}{re_sub(DANGER_CHARS, '_', album.__str__()).strip('.')}{PATHSEP}"
+            if not os.path.exists(location): # check & create the download location
                 os.makedirs(location)
-            if album.cover:
+            if album.cover: # save the cover from the album
                 with open(f"{location}cover.jpg", "w+b") as cover:
                     cover.write(album.cover)
-            resp = self.session.get(album.url)
+            resp = self.session.get(album.url) # request the album
             tracklist = parse_downloadable_tracks(resp.text.split("\n"))
-            for track in tracklist:
+            for track in tracklist: # iterate and download
                 self.download_file(f"{location}{track[0]}.mp3", track[1])
+            index = albumlist.index(album) + 1 # update the UI
+            self.messagehandler.send(MsgSetProgress(index , len(albumlist), f"Downloading Album {index}/{len(albumlist)}"))
         self.messagehandler.send(MsgFinishedDownloads(None))
 
     @safety_wrapper
@@ -155,10 +160,10 @@ class Connector(multiprocessing.Process):
                 self.get_fetch_tags(msg)
             elif isinstance(msg, MsgDownloadAlbums):
                 self.download_albums(msg)
-            elif isinstance(msg, MsgQuit):
-                self.__del__()
             elif isinstance(msg, MsgPause):
                 self.pause_fetch.set()
+            elif isinstance(msg, MsgQuit):
+                self.__del__()
             else:
                 LOGGER.error(f"Unknown Message:\n{msg}")
 
