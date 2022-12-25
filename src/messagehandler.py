@@ -4,17 +4,19 @@ from multiprocessing.connection import Listener, Client, Connection
 from threading import Thread
 
 from helpers import safety_wrapper, HLogger
+from messages import Msg
 LOGGER = HLogger(name="rbmd.msghndlr")
 
 class MessageHandler(Thread):
     """ the messagehandler class """
 
     @safety_wrapper
-    def __init__(self, connectionParams: dict, isClient: bool = False):
+    def __init__(self, connectionParams: dict, moduleName: str, isClient: bool = False):
         Thread.__init__(self)
-        self.address = connectionParams["address"]
-        self.port = connectionParams["port"]
-        self.authkey = connectionParams["key"]
+        self.moduleName: str = moduleName
+        self.address: str = connectionParams["address"]
+        self.port: int = connectionParams["port"]
+        self.authkey: bytes = connectionParams["key"]
         self.listener: Listener = None
         self.connection: Connection = None
         if isClient:
@@ -43,18 +45,19 @@ class MessageHandler(Thread):
             self.listener.close()
 
     @safety_wrapper
-    def send(self, msg):
+    def send(self, msg: Msg):
         """ sets metadata and sends the message """
         try:
             if self.connection:
-                LOGGER.debug(f"{type(self).__name__} sent: {msg}")
+                msg.set_sender(self.moduleName)
+                LOGGER.debug(f"{msg}")
                 return self.connection.send(msg)
         except ConnectionError as excp:
             LOGGER.exception(excp)
             self.__del__()
 
     @safety_wrapper
-    def recieve(self):
+    def recieve(self) -> Msg:
         """ pulls message from socket connection """
         try:
             if self.connection and not self.connection.closed and self.connection.poll(0.1):
@@ -64,7 +67,7 @@ class MessageHandler(Thread):
             self.__del__()
 
     @safety_wrapper
-    def isConnected(self):
+    def is_connected(self) -> bool:
         if self.connection:
             return True
         return False
@@ -78,7 +81,7 @@ class MessageHandler(Thread):
                 LOGGER.exception(f"Connector caught exception:\n{excp}")
 
     @safety_wrapper
-    def checkPortFree(port: int):
+    def check_port_free(port: int) -> int:
         from socket import socket, SOCK_STREAM, AF_INET
         tested : bool = False
         sock = socket(AF_INET, SOCK_STREAM)
