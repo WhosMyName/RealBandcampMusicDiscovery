@@ -47,7 +47,7 @@ class MessageHandler(Thread):
         """ sets metadata and sends the message """
         try:
             if self.connection:
-                LOGGER.debug(f"{self.__class__.__name__} sent: {msg}")
+                LOGGER.debug(f"{type(self).__name__} sent: {msg}")
                 return self.connection.send(msg)
         except ConnectionError as excp:
             LOGGER.exception(excp)
