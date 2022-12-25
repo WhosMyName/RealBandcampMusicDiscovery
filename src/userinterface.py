@@ -7,14 +7,14 @@ from datetime import datetime
 from multiprocessing import freeze_support
 
 
-from PySide6.QtWidgets import QMainWindow, QGridLayout, QLayout, QWidget, QMessageBox, QComboBox, QCompleter, QToolButton, QApplication, QScrollArea
+from PySide6.QtWidgets import QMainWindow, QGridLayout, QLayout, QWidget, QMessageBox, QComboBox, QCompleter, QToolButton, QApplication, QScrollArea, QProgressBar, QWidgetAction, QStatusBar
 from PySide6.QtCore import QTimer, QRect, QSortFilterProxyModel, QSize, Qt
 from PySide6.QtGui import QIcon, QAction, QPixmap
 
 from helpers import safety_wrapper, HLogger
 from album import Album
 from webconnector import Connector
-from messages import MsgGetTags, MsgPutFetchTags, MsgPutTags, MsgPutAlbums, MsgDownloadAlbums, MsgFinishedDownloads, MsgPause, MsgQuit
+from messages import MsgGetTags, MsgPutFetchTags, MsgPutTags, MsgPutAlbums, MsgDownloadAlbums, MsgFinishedDownloads, MsgPause, MsgSetProgress, MsgQuit
 from messagehandler import MessageHandler
 
 LOGGER = HLogger(name="rbmd.ui")
@@ -30,21 +30,27 @@ class MainWindow(QMainWindow):
         port = MessageHandler.checkPortFree(10666)
         authkey = bytes(sha256(str(datetime.now()).encode()).hexdigest(), encoding="utf-8")
         connParams = {"address": "127.0.0.1", "port": port, "key": authkey}
-        self.messagehandler = MessageHandler(connParams)
+        self.messagehandler: MessageHandler = MessageHandler(connParams)
+        self.connector: Connector = Connector(connectionParams=connParams)
         LOGGER.debug(f"Self: {self}")
 
-        self.connector = Connector(connectionParams=connParams)
-
-        self.timer = QTimer(self)
+        self.timer: QTimer = QTimer(self)
         self.timer.timeout.connect(self.msgcapture)
         # this is started in self.getTags()
 
-        self.layout = QGridLayout()
+        ### Geometry and Window ###
+        self.setWindowTitle("RealBandcampMusicDisc0very")
+        self.setGeometry(QRect(0, 0, 1330, 720))
+        self.layout: QGridLayout = QGridLayout()
         self.layout.setSizeConstraint(QLayout.SetMinimumSize)
-        self.widget = QWidget()
-        self.widget.setMinimumSize(800, 700)
+        self.widget: QWidget = QWidget()
         self.widget.setLayout(self.layout)
+        self.closeEvent = self.close
+        self.statusBar: QStatusBar = self.statusBar()
+        self.init_menu()
+        self.init_toolbar()
 
+        ### Scroll Area ###
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidget(self.widget)
         self.scroll_area.setWidgetResizable(True)
@@ -52,28 +58,34 @@ class MainWindow(QMainWindow):
             Qt.ScrollBarAlwaysOn)
         self.setCentralWidget(self.scroll_area)
 
-        self.setWindowTitle("RealBandcampMusicDisc0very")
-        self.setGeometry(QRect(0, 0, 1280, 720))
-        self.albumlist = set()
-        self.genrelist = set()
-        self.btnlist = []
-        self.selectorlist = []
-        self.fetched_albums = {}
+        ### Member Init ###
+        self.firstLoaded = True
+        self.albumList = set()
+        self.genreList = set()
+        self.buttonList = []
+        self.selectorList = []
+        self.fetchedAlbums = {}
         
+        ### Timer ###
         self.tagTimer = QTimer(self)
         self.tagTimer.timeout.connect(self.getTags)
         self.tagTimer.setSingleShot(False)
         self.tagTimer.start(1000)
-        self.closeEvent = self.close
-        self.statusBar()
-        self.firstloaded = True
-        self.init_menu()
-        self.init_toolbar()
-        self.show()
+
+        ### ProgressBar ###
+        self.progressBar: QProgressBar = QProgressBar(self)
+        self.progressBar.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.progressBar.setRange(0, 0)
+        self.progressBar.setTextVisible(True)
+        self.statusBar.addPermanentWidget(self.progressBar)
+
+        ### Notifier ###
         self.setStatusTip("Initializing...")
+        self.statusBar.reformat()
         self.msgbox = QMessageBox(self)
         self.msgbox.setText("Initializing...")
         self.msgbox.show()
+        self.show()
         LOGGER.debug(f"Init done...")
 
     @safety_wrapper
@@ -109,7 +121,7 @@ class MainWindow(QMainWindow):
         self.compare.setEnabled(True)
         self.reload.setEnabled(True)
         self.more.setEnabled(True)
-        self.setStatusTip("Init done!")
+        self.progressBar.setVisible(False)
         LOGGER.debug("Init done")
 
     @safety_wrapper
@@ -128,22 +140,22 @@ class MainWindow(QMainWindow):
 
         self.clear = self.toolbar.addAction("clear")
         self.clear.triggered.connect(self.clear_layout)
-        self.clear.setStatusTip("Clear All")
+        #self.clear.setStatusTip("Clear All")
         self.clear.setEnabled(False)
 
         self.compare = self.toolbar.addAction("Compare")
         self.compare.triggered.connect(self.comparison)
-        self.compare.setStatusTip("Compare!")
+        #self.compare.setStatusTip("Compare!")
         self.compare.setEnabled(False)
 
         self.reload = self.toolbar.addAction("Refresh")
         self.reload.triggered.connect(self.refresh)
-        self.reload.setStatusTip("Apply")
+        #self.reload.setStatusTip("Apply")
         self.reload.setEnabled(False)
 
         self.more = self.toolbar.addAction("Add Selector")
         self.more.triggered.connect(self.add_genre_selector)
-        self.more.setStatusTip("Add an additional Selector")
+        #self.more.setStatusTip("Add an additional Selector")
         self.more.setEnabled(False)
 
     @safety_wrapper
@@ -155,55 +167,56 @@ class MainWindow(QMainWindow):
         ### Quit ###
         self.quit_action = QAction(" &Quit", self)
         self.quit_action.setShortcut("Crtl+Q")
-        self.quit_action.setStatusTip("Quit this Application")
+        #self.quit_action.setStatusTip("Quit this Application")
         self.quit_action.triggered.connect(self.quit_application)
         self.menu_bar.addAction(self.quit_action)
 
         ### Help ###
         self.help_action = QAction(" &Help", self)
         self.help_action.setShortcut("F1")
-        self.help_action.setStatusTip("Show the help")
+        #self.help_action.setStatusTip("Show the help")
         self.help_action.triggered.connect(self.show_help)
         self.menu_bar.addAction(self.help_action)
 
         ### Save All ###
         self.save_action = QAction(" &Save", self)
         self.save_action.setShortcut("Ctrl+S")
-        self.save_action.setStatusTip("Save results to file")
+        #self.save_action.setStatusTip("Save results to file")
         self.save_action.triggered.connect(self.save_to_file)
         self.menu_bar.addAction(self.save_action)
 
         ### Save Selected ###
         self.save_selected_action = QAction(" &Save selected", self)
         self.save_selected_action.setShortcut("Ctrl+Shift+S")
-        self.save_selected_action.setStatusTip("Save selected to file")
+        #self.save_selected_action.setStatusTip("Save selected to file")
         self.save_selected_action.triggered.connect(self.save_selected)
         self.menu_bar.addAction(self.save_selected_action)
 
         ### Download Selected ###
         self.download_selected_action = QAction(" &Download selected", self)
         self.download_selected_action.setShortcut("Ctrl+Shift+D")
-        self.download_selected_action.setStatusTip("Download selected Albums")
+        #self.download_selected_action.setStatusTip("Download selected Albums")
         self.download_selected_action.triggered.connect(self.download_selected)
         self.menu_bar.addAction(self.download_selected_action)
 
         ### Pause ###
         self.pause_action = QAction(" &Pause", self)
         self.pause_action.setShortcut("Ctrl+P")
-        self.pause_action.setStatusTip("Pause current fetch cycle")
+        #self.pause_action.setStatusTip("Pause current fetch cycle")
         self.pause_action.triggered.connect(self.pause_fetch)
         self.menu_bar.addAction(self.pause_action)
+
 
     @safety_wrapper
     def save_to_file(self):
         """ saves current albums with tags to file """
         genre = ""
-        for action in self.selectorlist:
+        for action in self.selectorList:
             selector = self.toolbar.widgetForAction(action)
             genre = f"{genre} {selector.currentData(0)} x"
         with open("save.txt", "a") as save:
             save.write(f"\n################## All:{genre}#################\n")
-            for album in self.albumlist:
+            for album in self.albumList:
                 save.write(f"{album.band} - {album.name}\t{album.url}\n")
         self.setStatusTip("Data saved to file!")
 
@@ -218,7 +231,7 @@ class MainWindow(QMainWindow):
                     albums.append(child.statusTip())
         genre = ""
         LOGGER.debug(albums)
-        for action in self.selectorlist:
+        for action in self.selectorList:
             selector = self.toolbar.widgetForAction(action)
             genre = f"{genre} {selector.currentData(0)} x"
         genre = genre.rstrip("x")
@@ -226,7 +239,7 @@ class MainWindow(QMainWindow):
             save.write(f"\n################## Selection:{genre}#################\n")
             LOGGER.debug("Saving to file")
             for metaalbum in albums:
-                for album in self.albumlist:
+                for album in self.albumList:
                     if metaalbum == album.__str__():
                         save.write(f"{album.band} - {album.name}\n\t{album.url}\n")
         self.setStatusTip("Selected saved to file!")
@@ -241,8 +254,10 @@ class MainWindow(QMainWindow):
                 if child.isChecked():
                     albums.append(child.statusTip())
         downloadlist = []
+        LOGGER.debug(f"Albumlist length: {len(self.albumList)}")
+        LOGGER.debug(albums)
         for metaalbum in albums:
-            for album in self.albumlist:
+            for album in self.albumList:
                 if metaalbum == album.__str__():
                     downloadlist.append(album)
         self.messagehandler.send(MsgDownloadAlbums(downloadlist))
@@ -273,14 +288,14 @@ class MainWindow(QMainWindow):
         """ func to grab albums based on current selectors """
         LOGGER.debug("refreshing selection")
         comp = set()
-        for action in self.selectorlist:
+        for action in self.selectorList:
             selector = self.toolbar.widgetForAction(action)
-            if selector.currentData(0) in self.fetched_albums.keys():
-                self.albumlist.update(
-                    self.fetched_albums[selector.currentData(0)])
+            if selector.currentData(0) in self.fetchedAlbums.keys():
+                self.albumList.update(
+                    self.fetchedAlbums[selector.currentData(0)])
             elif selector.currentData(0) == "None":
                 self.toolbar.removeAction(action)
-                self.selectorlist.remove(action)
+                self.selectorList.remove(action)
             else:
                 comp.add(selector.currentData(0))
         LOGGER.debug(comp)
@@ -293,17 +308,17 @@ class MainWindow(QMainWindow):
         """ compares based on current selectors """
         self.setStatusTip("Comparing Albums...")
         comp = set()
-        for action in self.selectorlist:
+        for action in self.selectorList:
             selector = self.toolbar.widgetForAction(action)
             comp.add(selector.currentData(0))
         LOGGER.debug(comp)
         compareset = set()
-        # for album in self.albumlist: #set().intersection lambda key: comp.issubset(album.genre)
-        for album in self.albumlist:
+        # for album in self.albumList: #set().intersection lambda key: comp.issubset(album.genre)
+        for album in self.albumList:
             if comp.issubset(album.genre):
                 compareset.add(album)
                 LOGGER.debug(f"Added {album.name} after comparison")
-        self.albumlist = compareset
+        self.albumList = compareset
         self.update_layout()
         self.setStatusTip("Comparison done!")
 
@@ -312,13 +327,13 @@ class MainWindow(QMainWindow):
         """ parses albums from msg and distributes them to corresponding structures """
         albumsdict = msg.data
         for key, value in albumsdict.items():
-            if key in self.fetched_albums.keys():
-                albumsfetched = self.fetched_albums[key]
+            if key in self.fetchedAlbums.keys():
+                albumsfetched = self.fetchedAlbums[key]
                 albumsfetched.update(value)
-                self.fetched_albums[key] = albumsfetched
+                self.fetchedAlbums[key] = albumsfetched
             else:
-                self.fetched_albums[key] = value
-            self.albumlist.update(value)
+                self.fetchedAlbums[key] = value
+            self.albumList.update(value)
         self.update_layout()
 
     @safety_wrapper
@@ -336,8 +351,8 @@ class MainWindow(QMainWindow):
         comp.setCompletionMode(QCompleter.PopupCompletion)
         comp.setFilterMode(Qt.MatchContains)
         tempcombobox.setCompleter(comp)
-        tempcombobox.addItems(self.genrelist)
-        self.selectorlist.append(self.toolbar.addWidget(tempcombobox))
+        tempcombobox.addItems(self.genreList)
+        self.selectorList.append(self.toolbar.addWidget(tempcombobox))
 
     @safety_wrapper
     def add_album(self, album):
@@ -345,7 +360,7 @@ class MainWindow(QMainWindow):
         if isinstance(album, Album):
             btn = QToolButton()
             btn.setText(f"Artist: {album.band}\nAlbum: {album.name}")
-            btn.setStatusTip(f"{album.band} - {album.name}")
+            btn.setStatusTip(f"{album.__str__()}")
             if album.cover:
                 pix = QPixmap()
                 pix.loadFromData(album.cover)
@@ -357,14 +372,14 @@ class MainWindow(QMainWindow):
             btn.setCheckable(True)
             btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
             LOGGER.debug(f"Adding Album {album.name}")
-            self.btnlist.append(btn)
+            self.buttonList.append(btn)
         else:
             LOGGER.error(f"Wanted to add {album}, but it's not an Album")
 
     @safety_wrapper
     def clear_layout(self):
         """ clears current layout """
-        self.albumlist = set()
+        self.albumList = set()
         self.update_layout()
 
     @safety_wrapper
@@ -383,14 +398,14 @@ class MainWindow(QMainWindow):
             if not isinstance(child, QGridLayout):
                 child.deleteLater()
 
-        self.btnlist = []
+        self.buttonList = []
 
-        for album in self.albumlist:
+        for album in self.albumList:
             self.add_album(album)
 
-        positions = [(x, y) for x in range(int(ceil(len(self.btnlist)/5)))
+        positions = [(x, y) for x in range(int(ceil(len(self.buttonList)/5)))
                      for y in range(1, 6)]
-        for position, btn in zip(positions, self.btnlist):
+        for position, btn in zip(positions, self.buttonList):
             self.layout.addWidget(btn, *position)
 
     @safety_wrapper
@@ -411,6 +426,8 @@ class MainWindow(QMainWindow):
                 self.process_albums(msg)
             elif isinstance(msg, MsgFinishedDownloads):
                 self.show_download_finished()
+            elif isinstance(msg, MsgSetProgress):
+                self.setProgress(msg=msg)
             else:
                 LOGGER.error(f"Unknown Message:\n{msg}")
 
@@ -418,7 +435,22 @@ class MainWindow(QMainWindow):
     def store_tags_from_msg(self, msg):
         """ stores default tags from msg """
         if msg.data is not None:
-            self.genrelist = msg.data
+            self.genreList = msg.data
+
+    @safety_wrapper
+    def setProgress(self, msg: MsgSetProgress):
+        #LOGGER.debug(msg)
+        if msg.data["curr"] < msg.data["max"]:
+            self.progressBar.setVisible(True)
+            self.progressBar.setRange(0, msg.data["max"])
+            self.progressBar.setValue(msg.data["curr"])
+            self.progressBar.setFormat(msg.data["message"])
+        elif msg.data["curr"] == msg.data["max"]:
+            self.progressBar.setRange(0, 0)
+            self.progressBar.setVisible(False)
+            pass
+        else:
+            LOGGER.exception(f"Incorrect progress parameters:\n{msg.__str__()}")
 
 
 ############################################## End Logikz #####################################################
