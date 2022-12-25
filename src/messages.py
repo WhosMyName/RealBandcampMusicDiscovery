@@ -7,8 +7,12 @@ class Msg():
 
     def __init__(self, data=None):
         """ simple init """
-        self.sender = None
+        self.sender: str = "."
         self.data = data
+
+    def set_sender(self, sender: str):
+        """sets the messages sender"""
+        self.sender = sender
 
     def get_sender(self):
         """ returns sender """
