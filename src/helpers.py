@@ -5,13 +5,20 @@ from os import name, path, makedirs
 from datetime import datetime as dt
 
 
-################################### OS Path Separators
+################################### OS Path Separators + and other things
 if name == "nt":
     PATHSEP = "\\"
 else:
     PATHSEP = "/"
 
 CWD = f"{path.dirname(path.realpath(__file__))}{PATHSEP}"
+
+# define dangerous chars that might cause issues in FS
+# substitute with
+# from re import sub as re_sub
+# re_sub(DANGER_CHARS, '_', *STRINGHERE*).strip('.')
+DANGER_CHARS = "[\[\/\\\*\?:\"<>\|~°\^\]]"
+
 
 ################################### Helper Logger
 LOG_FORMAT = "%(asctime)-15s | %(levelname)s | %(module)s %(name)s %(process)d %(thread)d | %(funcName)20s() - Line %(lineno)d | %(message)s"
