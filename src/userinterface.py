@@ -4,6 +4,7 @@ import sys
 from math import ceil
 from hashlib import sha256
 from datetime import datetime
+from webbrowser import BaseBrowser, get as webbrowser_get, open_new_tab
 from multiprocessing import freeze_support
 
 
@@ -60,15 +61,15 @@ class MainWindow(QMainWindow):
 
         ### Member Init ###
         self.firstLoaded: bool = True
-        self.albumSet: set = set()
-        self.genreSet: set = set()
-        self.buttonList: list = []
-        self.selectorList: list = []
-        self.fetchedAlbums: dict = {}
+        self.albumSet: set[Album] = set()
+        self.genreSet: set[str] = set()
+        self.buttonList: list[QToolButton] = []
+        self.selectorList: list[QAction] = []
+        self.fetchedAlbums: dict[str, list[Album]] = {}
         
         ### Timer ###
         self.tagTimer: QTimer = QTimer(self)
-        self.tagTimer.timeout.connect(self.getTags)
+        self.tagTimer.timeout.connect(self.get_tags)
         self.tagTimer.setSingleShot(False)
         self.tagTimer.start(1000)
 
@@ -140,22 +141,22 @@ class MainWindow(QMainWindow):
 
         self.clear = self.toolbar.addAction("clear")
         self.clear.triggered.connect(self.clear_layout)
-        #self.clear.setStatusTip("Clear All")
+        self.clear.setStatusTip("Clear All")
         self.clear.setEnabled(False)
 
         self.compare = self.toolbar.addAction("Compare")
         self.compare.triggered.connect(self.comparison)
-        #self.compare.setStatusTip("Compare!")
+        self.compare.setStatusTip("Compare!")
         self.compare.setEnabled(False)
 
         self.reload = self.toolbar.addAction("Refresh")
         self.reload.triggered.connect(self.refresh)
-        #self.reload.setStatusTip("Apply")
+        self.reload.setStatusTip("Apply")
         self.reload.setEnabled(False)
 
         self.more = self.toolbar.addAction("Add Selector")
         self.more.triggered.connect(self.add_genre_selector)
-        #self.more.setStatusTip("Add an additional Selector")
+        self.more.setStatusTip("Add an additional Selector")
         self.more.setEnabled(False)
 
     @safety_wrapper
@@ -179,9 +180,9 @@ class MainWindow(QMainWindow):
         self.menu_bar.addAction(self.help_action)
 
         ### Save All ###
-        self.save_action: QAction = QAction(" &Save", self)
+        self.save_action: QAction = QAction(" &Save all", self)
         self.save_action.setShortcut("Ctrl+S")
-        self.save_action.setStatusTip("Save results to file")
+        self.save_action.setStatusTip("Save all results to file")
         self.save_action.triggered.connect(self.save_to_file)
         self.menu_bar.addAction(self.save_action)
 
@@ -199,6 +200,14 @@ class MainWindow(QMainWindow):
         self.download_selected_action.triggered.connect(self.download_selected)
         self.menu_bar.addAction(self.download_selected_action)
 
+
+        ### Open Selected in Browser ###
+        self.browse_selected_action: QAction = QAction(" &Browse selected", self)
+        self.browse_selected_action.setShortcut("Ctrl+Shift+B")
+        self.browse_selected_action.setStatusTip("Open Selected in Browser")
+        self.browse_selected_action.triggered.connect(self.browse_selected)
+        self.menu_bar.addAction(self.browse_selected_action)
+
         ### Pause ###
         self.pause_action: QAction = QAction(" &Pause", self)
         self.pause_action.setShortcut("Ctrl+P")
@@ -211,57 +220,42 @@ class MainWindow(QMainWindow):
     def save_to_file(self):
         """ saves current albums with tags to file """
         genre: str = ""
-        for action in self.selectorList:
+        for action in self.selectorList: # get all current selectors
             selector: QWidget = self.toolbar.widgetForAction(action)
-            genre = f"{genre} {selector.currentData(0)} x"
+            genre = f"{genre} {selector.currentData(0)} x" # concat the genres
         with open("save.txt", "a") as save:
             save.write(f"\n################## All:{genre}#################\n")
             for album in self.albumSet:
-                save.write(f"{album.band} - {album.name}\t{album.url}\n")
+                save.write(f"{album.__str__()}\n\t{album.url}\n")
         self.setStatusTip("Data saved to file!")
 
     @safety_wrapper
     def save_selected(self):
         """ saves current albums with tags to file """
-        albums: list = []
-        for child in self.widget.children():
-            #LOGGER.debug(child)
-            if isinstance(child, QToolButton):
-                if child.isChecked():
-                    albums.append(child.statusTip())
         genre: str = ""
-        LOGGER.debug(albums)
-        for action in self.selectorList:
+        for action in self.selectorList: # get all current selectors
             selector: QWidget = self.toolbar.widgetForAction(action)
-            genre = f"{genre} {selector.currentData(0)} x"
+            genre = f"{genre} {selector.currentData(0)} x" # concat the genres
         genre = genre.rstrip("x")
-        with open("save.txt", mode="a", encoding="utf-8") as save:
+        with open("save.txt", mode="a", encoding="utf-8") as save: # save the selected albums
             save.write(f"\n################## Selection:{genre}#################\n")
             LOGGER.debug("Saving to file")
-            for metaalbum in albums:
-                for album in self.albumSet:
-                    if metaalbum == album.__str__():
-                        save.write(f"{album.band} - {album.name}\n\t{album.url}\n")
+            for album in self.get_selected_albums():
+                save.write(f"{album.__str__()}\n\t{album.url}\n")
         self.setStatusTip("Selected saved to file!")
 
     @safety_wrapper
     def download_selected(self):
         """ Downloads selected albums """
         LOGGER.debug(f"Downloading selected Albums")
-        albums: list = []
-        for child in self.widget.children():
-            if isinstance(child, QToolButton):
-                if child.isChecked():
-                    albums.append(child.statusTip())
-        downloadlist: list = []
-        #LOGGER.debug(f"Albumlist length: {len(self.albumSet)}")
-        #LOGGER.debug(albums)
-        for metaalbum in albums:
-            for album in self.albumSet:
-                if metaalbum == album.__str__():
-                    downloadlist.append(album)
-        self.messagehandler.send(MsgDownloadAlbums(downloadlist))
+        self.messagehandler.send(MsgDownloadAlbums(self.get_selected_albums()))
         self.setStatusTip("Downloading Albums!")
+
+    @safety_wrapper
+    def browse_selected(self):
+        controller: BaseBrowser = webbrowser_get() # gets the systems default browser and returns a controller
+        for album in self.get_selected_albums():
+            controller.open_new_tab(album.url)
 
     @safety_wrapper
     def pause_fetch(self):
@@ -284,10 +278,25 @@ class MainWindow(QMainWindow):
 ############################################## Logikz #########################################################
 
     @safety_wrapper
+    def get_selected_albums(self) -> list[Album]:
+        statusTipAlbums: list = []
+        for child in self.widget.children(): # iterate all child widgets
+            #LOGGER.debug(child)
+            if isinstance(child, QToolButton): # check if they're QToolButton
+                if child.isChecked():
+                    statusTipAlbums.append(child.statusTip()) # get the status tip for comparison
+        returnList: list[Album] = []
+        for metaalbum in statusTipAlbums:
+            for album in self.albumSet:
+                if metaalbum == album.__str__(): # compare
+                    returnList.append(album)
+        return returnList
+
+    @safety_wrapper
     def refresh(self):
         """ func to grab albums based on current selectors """
         LOGGER.debug("refreshing selection")
-        comp: set = set()
+        comp: set[str] = set()
         for action in self.selectorList:
             selector: QWidget = self.toolbar.widgetForAction(action)
             if selector.currentData(0) in self.fetchedAlbums.keys():
@@ -307,12 +316,12 @@ class MainWindow(QMainWindow):
     def comparison(self):
         """ compares based on current selectors """
         self.setStatusTip("Comparing Albums...")
-        comp: set = set()
+        comp: set[str] = set()
         for action in self.selectorList:
             selector: QWidget = self.toolbar.widgetForAction(action)
             comp.add(selector.currentData(0))
         LOGGER.debug(comp)
-        compareset: set = set()
+        compareset: set[Album] = set()
         # for album in self.albumList: #set().intersection lambda key: comp.issubset(album.genre)
         for album in self.albumSet:
             if comp.issubset(album.genre):
@@ -427,13 +436,13 @@ class MainWindow(QMainWindow):
             elif isinstance(msg, MsgFinishedDownloads):
                 self.show_download_finished()
             elif isinstance(msg, MsgSetProgress):
-                self.setProgress(msg=msg)
+                self.set_progress(msg=msg)
             else:
                 LOGGER.error(f"Unknown Message:\n{msg}")
 
     @safety_wrapper
     def store_tags_from_msg(self, msg: MsgPutTags):
-        """ stores default tags from msg """
+        """ stores default tags for genre selection """
         if msg.data is not None:
             self.genreSet: set = msg.data
 
