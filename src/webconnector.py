@@ -116,7 +116,7 @@ class Connector(multiprocessing.Process):
         return None
 
     @safety_wrapper
-    def update_album_metadata(self, album: Album):  # get pictures too
+    def update_album_metadata(self, album: Album) -> Album:  # get pictures too
         """ func that grabs+parses album metadata """
         LOGGER.debug(f"Updating Tags for {album.name}")
         resp: requests.Response = self.session.get(album.url) # get the albums linked tags
