@@ -9,7 +9,7 @@ class Album():
         self.genre: set = set()
         self.url: str = url
         self.band: str = band
-        self.cover = None
+        self.cover: bytes = None
         self.cover_url: str = cover_url
 
     def __str__(self):
