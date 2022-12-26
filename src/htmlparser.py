@@ -10,7 +10,7 @@ from helpers import safety_wrapper, HLogger, DANGER_CHARS
 LOGGER = HLogger(name="rbmd.htmlparser")
 
 @safety_wrapper
-def parse_tags(data) -> list:
+def parse_tags(data) -> list[str]:
     """ simple func for parsing bandcamps "default" tags """
     LOGGER.debug("Parsing Tags")
     tagset: set = set() # create our storage [set becuase we don't want any duplicates]
@@ -25,7 +25,7 @@ def parse_tags(data) -> list:
     return taglist
 
 @safety_wrapper
-def parse_albums(data) -> set:
+def parse_albums(data) -> set[Album]:
     """ func that does the basic album parsing"""
     LOGGER.debug("Parsing Albums")
     albumset: set = set() 
@@ -71,10 +71,10 @@ def parse_maxpages(data) -> int:
     return maxpages
 
 @safety_wrapper
-def parse_album_metadata(data) -> set: #grab all metadata
+def parse_album_metadata(data) -> set[str]: #grab all metadata
     """ parsing metadata (tags, urls, covers, etc...) """
     LOGGER.debug("Parsing Tags")
-    genrelist: set = set()
+    genrelist: set[str] = set()
     for line in data:
         if "class=\"tag\" href=" in line:
             genre: str = line.split("/tag/")[1].split("?")[0]
@@ -91,6 +91,6 @@ def parse_downloadable_tracks(data) -> list:
             unescaped_line: str = unescape(line.split("data-tralbum=\"")[1].split("\"")[0])
             content: str = json.loads(unescaped_line)
     if content and "trackinfo" in content.keys():
-        tracklist: list = [[re_sub(DANGER_CHARS, "_", track['title']), track["file"]["mp3-128"]] for track in content["trackinfo"]]
+        tracklist: list[list[str]] = [[re_sub(DANGER_CHARS, "_", track['title']), track["file"]["mp3-128"]] for track in content["trackinfo"]]
         return tracklist
     return []
