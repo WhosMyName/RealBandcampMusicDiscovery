@@ -42,7 +42,7 @@ jobs:
         with:
           script-name: RealBandcampMusicDiscovery
           onefile: true
-          enalbe-plugins: pyside6
+          enable-plugins: pyside6
           enable-console: false
           disable-console: true
   
