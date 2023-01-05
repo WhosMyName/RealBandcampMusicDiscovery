@@ -40,11 +40,12 @@ jobs:
       # Build python script into a stand-alone exe
       - uses: Nuitka/Nuitka-Action@v0.4
         with:
-          script-name: RealBandcampMusicDiscovery
+          script-name: src/userinterface.py
           onefile: true
           enable-plugins: pyside6
           enable-console: false
           disable-console: true
+          output-file: RealBandcampMusicDiscovery
   
       # Uploads artifacts
       - name: "Upload Artifacts"
