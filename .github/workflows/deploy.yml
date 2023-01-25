@@ -40,7 +40,7 @@ jobs:
           pip install -r requirements.txt
       # Build python script into a stand-alone exe
       - name: Build with Nuitka Action
-        uses: WhosMyName/Nuitka-Action@v0.4.3
+        uses: WhosMyName/Nuitka-Action@v0.4.4
         with:
           script-name: src/userinterface.py
           onefile: true
