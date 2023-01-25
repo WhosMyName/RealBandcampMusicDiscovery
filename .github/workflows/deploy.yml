@@ -48,6 +48,7 @@ jobs:
           enable-console: false
           disable-console: true
           macos-create-app-bundle: true
+          # windows-icon-from-ico:
           output-file: RealBandcampMusicDiscovery
   
       # Uploads artifacts
