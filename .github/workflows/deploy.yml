@@ -40,7 +40,7 @@ jobs:
           pip install -r requirements.txt
       # Build python script into a stand-alone exe
       - name: Build with Nuitka Action
-        uses: WhosMyName/Nuitka-Action@v0.4.4
+        uses: Nuitka/Nuitka-Action@main
         with:
           script-name: src/userinterface.py
           onefile: true
@@ -49,7 +49,6 @@ jobs:
           disable-console: true
           macos-create-app-bundle: true
           # windows-icon-from-ico:
-          windows-mingw-build: false
           show-scons: true
           output-file: RealBandcampMusicDiscovery
   
