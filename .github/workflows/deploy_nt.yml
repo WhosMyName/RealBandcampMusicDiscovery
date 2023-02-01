@@ -1,7 +1,7 @@
 # This is a workflow for building the RBMD executable on all three major platforms.
 # Example blatantly stolen from https://github.com/jimkring/kasa-cli/
 
-name: build_all_platforms
+name: build_win
 
 # Controls when the workflow will run
 on:
@@ -64,9 +64,10 @@ jobs:
 
       - name: Release
         uses: ncipollo/release-action@main
-        makeLatest: "true"
-        generateReleaseNotes: false
-        artifacts: |
-          build/*/*.exe
-          build/*/*.bin
-          build/*/*.app/**/*
+        with: 
+          makeLatest: "true"
+          generateReleaseNotes: false
+          artifacts: |
+            build/*/*.exe
+            build/*/*.bin
+            build/*/*.app/**/*
