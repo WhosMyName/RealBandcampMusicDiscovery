@@ -18,8 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        #os: [macos-latest, ubuntu-latest, windows-latest]
-        os: [macos-latest, ubuntu-latest]
+        os: [windows-latest]
       
     runs-on: ${{ matrix.os }}
     
@@ -49,10 +48,9 @@ jobs:
           enable-plugins: pyside6
           enable-console: false
           disable-console: true
-          macos-create-app-bundle: true
           # windows-icon-from-ico:
           show-scons: true
-          output-file: RealBandcampMusicDiscovery
+          output-file: RealBandcampMusicDiscovery.exe
   
       # Uploads artifacts
       - name: Upload Artifacts
@@ -63,3 +61,12 @@ jobs:
             build/*/*.exe
             build/*/*.bin
             build/*/*.app/**/*
+
+      - name: Release
+        uses: ncipollo/release-action@main
+        makeLatest: true
+        generateReleaseNote: false
+        artifacts: |
+          build/*/*.exe
+          build/*/*.bin
+          build/*/*.app/**/*
