@@ -65,7 +65,7 @@ jobs:
       - name: Release
         uses: ncipollo/release-action@main
         makeLatest: true
-        generateReleaseNote: false
+        generateReleaseNotes: false
         artifacts: |
           build/*/*.exe
           build/*/*.bin
