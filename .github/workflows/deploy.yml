@@ -51,7 +51,7 @@ jobs:
           disable-console: true
           macos-create-app-bundle: true
           # windows-icon-from-ico:
-          show-scons: true
+          #show-scons: true
           output-file: RealBandcampMusicDiscovery
   
       # Uploads artifacts
