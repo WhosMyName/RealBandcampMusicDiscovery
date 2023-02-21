@@ -49,7 +49,6 @@ jobs:
           enable-plugins: pyside6
           enable-console: false
           disable-console: true
-          mingw64: true
           # windows-icon-from-ico:
           show-scons: true
           output-file: RealBandcampMusicDiscovery.exe
