@@ -60,8 +60,7 @@ jobs:
           name: ${{ runner.os }} Build
           path: |
             build/*.exe
-            build/*.bin
-            build/*.app/**/*
+            build/*
 
       - name: Release
         uses: ncipollo/release-action@main
@@ -70,5 +69,4 @@ jobs:
           generateReleaseNotes: false
           artifacts: |
             build/*.exe
-            build/*.bin
-            build/*.app/**/*
+            build/*
