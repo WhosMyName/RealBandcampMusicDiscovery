@@ -18,8 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        #os: [macos-latest, ubuntu-latest, windows-latest]
-        os: [macos-latest, ubuntu-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
       
     runs-on: ${{ matrix.os }}
     
@@ -44,13 +43,13 @@ jobs:
       - name: Build with Nuitka Action
         uses: Nuitka/Nuitka-Action@main
         with:
+          nuitka-version: 1.4.8
           script-name: src/userinterface.py
           onefile: true
           enable-plugins: pyside6
           enable-console: false
           disable-console: true
           macos-create-app-bundle: true
-          # windows-icon-from-ico:
           #show-scons: true
           output-file: RealBandcampMusicDiscovery
   
@@ -60,6 +59,16 @@ jobs:
         with:
           name: ${{ runner.os }} Build
           path: |
-            build/*/*.exe
-            build/*/*.bin
-            build/*/*.app/**/*
+            build/*.exe
+            build/*.bin
+            build/*.app/**/*
+
+      - name: Release
+        uses: ncipollo/release-action@main
+        with: 
+          makeLatest: "true"
+          generateReleaseNotes: false
+          artifacts: |
+            build/*.exe
+            build/*.bin
+            build/*.app/**/*

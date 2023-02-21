@@ -69,6 +69,6 @@ jobs:
           makeLatest: "true"
           generateReleaseNotes: false
           artifacts: |
-            build/*/*.exe
-            build/*/*.bin
-            build/*/*.app/**/*
+            build/*.exe
+            build/*.bin
+            build/*.app/**/*
