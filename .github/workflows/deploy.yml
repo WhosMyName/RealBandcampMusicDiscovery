@@ -25,6 +25,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     
     steps:
+      - name: Print Env
+        run: ${{ env.REPO_NAME }}
+
       # Check-out repository
       - name: Checkout
         uses: actions/checkout@v3
@@ -60,7 +63,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: ${{ runner.os }} Build
-          path: build/${REPO_NAME}
+          path: build/${{ env.REPO_NAME }}
 
   release:
     runs-on: [ubuntu-latest]
@@ -72,4 +75,4 @@ jobs:
         with: 
           makeLatest: "true"
           generateReleaseNotes: false
-          artifacts: build/${REPO_NAME}
+          artifacts: build/${{ env.REPO_NAME }}
