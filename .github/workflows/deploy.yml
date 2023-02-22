@@ -55,19 +55,20 @@ jobs:
           macos-create-app-bundle: true
           #show-scons: true
           output-file: $REPO_NAME
+
+      # Print Build results
+      - name: Print Build results
+        run: ls -lah build/
   
       # Uploads artifacts
       - name: Upload Artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ runner.os }} Build
+          name: ${{ env.REPO_NAME }} - ${{ runner.os }} Build
           retention-days: 30
           path: |
             build/${{ env.REPO_NAME }}.exe
             build/${{ env.REPO_NAME }}
-
-      - name: Print Artifacts
-        run: ls -lah ${{ github.workspace }}
 
   release:
     runs-on: [ubuntu-latest]
@@ -87,5 +88,4 @@ jobs:
           makeLatest: "true"
           generateReleaseNotes: false
           artifacts: |
-            ${{ env.REPO_NAME }}.exe
-            ${{ env.REPO_NAME }}
+            *
