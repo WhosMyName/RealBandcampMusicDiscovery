@@ -18,7 +18,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        #os: [macos-latest, ubuntu-latest, windows-latest]
+        os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     
     steps:
@@ -60,7 +61,9 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: ${{ runner.os }} Build
-          path: build/${{ env.REPO_NAME }}
+          path: |
+            build/${{ env.REPO_NAME }}.exe
+            build/${{ env.REPO_NAME }}
 
   release:
     runs-on: [ubuntu-latest]
@@ -72,4 +75,6 @@ jobs:
         with: 
           makeLatest: "true"
           generateReleaseNotes: false
-          artifacts: build/${{ env.REPO_NAME }}
+          artifacts: |
+            build/${{ env.REPO_NAME }}.exe
+            build/${{ env.REPO_NAME }}
