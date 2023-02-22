@@ -1,7 +1,7 @@
 # This is a workflow for building the RBMD executable on all three major platforms.
 # Example blatantly stolen from https://github.com/jimkring/kasa-cli/
 
-name: build_all_platforms
+name: build_python_onefile_multi-platform
 env:
   REPO_NAME: ${{ github.event.repository.name }}
 # Controls when the workflow will run
@@ -10,7 +10,6 @@ on:
   push:
     tags:
       - "**"
-
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
@@ -19,19 +18,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        #os: [macos-latest, ubuntu-latest, windows-latest]
-        os: [ubuntu-latest]
-      
+        os: [macos-latest, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     
     steps:
-      - name: Print Env
-        run: echo ${{ env.REPO_NAME }}
-
       # Check-out repository
       - name: Checkout
         uses: actions/checkout@v3
 
+      # Set up Python Environment
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -40,10 +35,12 @@ jobs:
           cache: 'pip'
           cache-dependency-path: |
             **/requirements*.txt
-      # Install dependencies
+
+      # Install Dependencies
       - name: Install Dependencies
         run: |
           pip install -r requirements.txt
+
       # Build python script into a stand-alone exe
       - name: Build with Nuitka Action
         uses: Nuitka/Nuitka-Action@main
@@ -69,7 +66,7 @@ jobs:
     runs-on: [ubuntu-latest]
     needs: build
     steps:
-      # add Release
+      # add Releases
       - name: Release
         uses: ncipollo/release-action@main
         with: 
