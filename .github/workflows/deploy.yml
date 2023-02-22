@@ -77,7 +77,8 @@ jobs:
 
       - name: Download Artifacts 
         uses: actions/download-artifact@v3
-        path: .
+        with:
+          path: .
 
       - name: Print Artifacts
         run: ls -lah 
