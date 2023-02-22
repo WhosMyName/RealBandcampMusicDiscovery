@@ -2,7 +2,8 @@
 # Example blatantly stolen from https://github.com/jimkring/kasa-cli/
 
 name: build_all_platforms
-
+env:
+  REPO_NAME: ${{ github.event.repository.name }}
 # Controls when the workflow will run
 on:
   # Triggers the workflow if a tag is pushed
@@ -18,7 +19,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        #os: [macos-latest, ubuntu-latest, windows-latest]
+        os: [ubuntu-latest]
       
     runs-on: ${{ matrix.os }}
     
@@ -51,7 +53,7 @@ jobs:
           disable-console: true
           macos-create-app-bundle: true
           #show-scons: true
-          output-file: RealBandcampMusicDiscovery
+          output-file: $REPO_NAME
   
       # Uploads artifacts
       - name: Upload Artifacts
@@ -60,13 +62,15 @@ jobs:
           name: ${{ runner.os }} Build
           path: |
             build/*.exe
-            build/*
+            build/$REPO_NAME
 
+  release:
+    steps:
+      # add Release
       - name: Release
         uses: ncipollo/release-action@main
         with: 
           makeLatest: "true"
           generateReleaseNotes: false
           artifacts: |
-            build/*.exe
-            build/*
+            build/$REPO_NAME
