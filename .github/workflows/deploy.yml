@@ -26,7 +26,7 @@ jobs:
     
     steps:
       - name: Print Env
-        run: ${{ env.REPO_NAME }}
+        run: echo ${{ env.REPO_NAME }}
 
       # Check-out repository
       - name: Checkout
