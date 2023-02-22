@@ -65,6 +65,7 @@ jobs:
             build/$REPO_NAME
 
   release:
+    runs-on: [ubuntu-latest]
     steps:
       # add Release
       - name: Release
