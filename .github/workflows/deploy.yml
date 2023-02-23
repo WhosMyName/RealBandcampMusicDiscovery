@@ -17,8 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        #os: [macos-latest, ubuntu-latest, windows-latest]
-        os: [windows-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     env:
       BUILD_NAME: ${{ github.event.repository.name }}_${{ matrix.os }}
@@ -26,7 +25,7 @@ jobs:
     steps:
 
       - name: Echo env
-        run: echo $BUILD_NAME
+        run: echo ${{ env.BUILD_NAME }}
 
       # Check-out repository
       - name: Checkout
