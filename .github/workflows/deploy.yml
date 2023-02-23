@@ -75,11 +75,21 @@ jobs:
     needs: build
     steps:
 
+      # download the artifacts from github
       - name: Download Artifacts 
         uses: actions/download-artifact@v3
         with:
           path: .
 
+      # copy all files one level up
+      - name: Copy Artifacts
+        run: mv */* .
+
+      # delete all empty folders
+      - name: Clean folders
+        run: find . -empty -type d -delete
+
+      # display results
       - name: Print Artifacts
         run: ls -lah 
 
