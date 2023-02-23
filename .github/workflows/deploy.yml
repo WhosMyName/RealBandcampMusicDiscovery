@@ -54,7 +54,7 @@ jobs:
           disable-console: true
           macos-create-app-bundle: true
           #show-scons: true
-          output-file: "$REPO_NAME - ${{ runner.os }}"
+          output-file: $REPO_NAME
 
       # Print Build results
       - name: Print Build results
