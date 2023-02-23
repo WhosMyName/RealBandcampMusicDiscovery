@@ -25,6 +25,10 @@ jobs:
       OS_VERS: ${{ matrix.os }}
     
     steps:
+
+      - name: Echo env
+        run: echo $OS_VERS
+
       # Check-out repository
       - name: Checkout
         uses: actions/checkout@v3
