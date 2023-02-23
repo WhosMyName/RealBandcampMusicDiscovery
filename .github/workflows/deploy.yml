@@ -22,7 +22,7 @@ jobs:
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     env:
-      OS_VERS: ${{ matrix.os }}
+      OS_VERS: ${{ env.REPO_NAME }} - ${{ matrix.os }}
     
     steps:
 
