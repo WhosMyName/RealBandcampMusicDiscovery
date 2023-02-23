@@ -22,7 +22,7 @@ jobs:
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     env:
-      OS_VERS: $REPO_NAME - ${{ matrix.os }}
+      OS_VERS: ${{ github.event.repository.name }} - ${{ matrix.os }}
     
     steps:
 
