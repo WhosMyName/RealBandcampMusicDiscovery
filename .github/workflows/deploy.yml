@@ -62,7 +62,7 @@ jobs:
 
       # Print Build results
       - name: Print Build results
-        run: ls -lah build/
+        run: ls build/
   
       # Uploads artifacts
       - name: Upload Artifacts
