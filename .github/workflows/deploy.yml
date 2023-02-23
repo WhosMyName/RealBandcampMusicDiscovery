@@ -17,7 +17,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        #os: [macos-latest, ubuntu-latest, windows-latest]
+        os: [windows-latest]
     runs-on: ${{ matrix.os }}
     env:
       BUILD_NAME: ${{ github.event.repository.name }}_${{ matrix.os }}
@@ -58,7 +59,7 @@ jobs:
           disable-console: true
           macos-create-app-bundle: true
           #show-scons: true
-          output-file: $BUILD_NAME
+          output-file: ${{ env.BUILD_NAME }}
 
       # Print Build results
       - name: Print Build results
