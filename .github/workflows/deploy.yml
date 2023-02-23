@@ -22,12 +22,12 @@ jobs:
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     env:
-      OS_VERS: ${{ github.event.repository.name }} - ${{ matrix.os }}
+      BUILD_NAME: ${{ github.event.repository.name }} - ${{ matrix.os }}
     
     steps:
 
       - name: Echo env
-        run: echo $OS_VERS
+        run: echo $BUILD_NAME
 
       # Check-out repository
       - name: Checkout
@@ -60,7 +60,7 @@ jobs:
           disable-console: true
           macos-create-app-bundle: true
           #show-scons: true
-          output-file: "$REPO_NAME - $OS_VERS"
+          output-file: $BUILD_NAME
 
       # Print Build results
       - name: Print Build results
@@ -70,11 +70,11 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ env.REPO_NAME }} - ${{ runner.os }} Build
+          name: ${{ env.BUILD_NAME }} Build
           retention-days: 30
           path: |
-            build/${{ env.REPO_NAME }}.exe
-            build/${{ env.REPO_NAME }}
+            build/${{ env.BUILD_NAME }}.exe
+            build/${{ env.BUILD_NAME }}
 
   release:
     runs-on: [ubuntu-latest]
